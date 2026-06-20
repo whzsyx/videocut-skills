@@ -16,7 +16,7 @@
 原始仓库：
 
 ```text
-https://github.com/Agentchengfeng/videocut-skills
+https://github.com/Agentchengfeng/chengfeng-videocut-skills
 ```
 
 如果你使用、转载、翻译、二次发布或改造成自己的 Skill，请保留原作者和原始仓库链接。
@@ -62,15 +62,42 @@ https://github.com/Agentchengfeng/videocut-skills
 
 ### 1. 安装 Skills
 
+如果你只想复制命令，直接用 npm 安装：
+
+```bash
+npx chengfeng-videocut-skills install
+```
+
+这个 npm 包只是一个很小的安装器。执行时会从 GitHub 拉取最新仓库：
+
+```text
+https://github.com/Agentchengfeng/chengfeng-videocut-skills
+```
+
+所以后续只需要维护 GitHub，用户每次执行命令都会安装仓库里的最新 Skills。
+
+它会把 Skills 安装到：
+
+- `~/.claude/skills/chengfeng-videocut-skills`
+- `~/.codex/skills/chengfeng-videocut-skills`
+
+也可以只安装到 Codex：
+
+```bash
+npx chengfeng-videocut-skills install --target codex
+```
+
+如果你习惯从 GitHub 克隆，也可以用：
+
 ```bash
 # 克隆到 Claude Code skills 目录
-git clone https://github.com/Agentchengfeng/videocut-skills.git ~/.claude/skills/videocut
+git clone https://github.com/Agentchengfeng/chengfeng-videocut-skills.git ~/.claude/skills/chengfeng-videocut-skills
 ```
 
 ### 2. 配置 API Key
 
 ```bash
-cd ~/.claude/skills/videocut
+cd ~/.claude/skills/chengfeng-videocut-skills
 cp .env.example .env
 # 编辑 .env，填入火山引擎 API Key
 ```
@@ -80,7 +107,7 @@ cp .env.example .env
 打开 Claude Code，输入：
 
 ```
-/videocut:安装
+/chengfeng-videocut-skills:安装
 ```
 
 AI 会自动：
@@ -92,11 +119,11 @@ AI 会自动：
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  /videocut:安装  →  首次使用，安装环境和模型            │
+│  /chengfeng-videocut-skills:安装  → 首次使用，安装环境和模型 │
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│  /videocut:剪口播 视频.mp4                              │
+│  /chengfeng-videocut-skills:剪口播 视频.mp4              │
 │                                                         │
 │  1. 提取音频 → 上传云端                                 │
 │  2. 火山引擎转录 → 字级别时间戳                         │
@@ -114,7 +141,7 @@ AI 会自动：
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│  /videocut:字幕                                         │
+│  /chengfeng-videocut-skills:字幕                         │
 │                                                         │
 │  - Whisper 转录                                         │
 │  - 词典纠错（Claude Code → claude code）                │
@@ -122,7 +149,7 @@ AI 会自动：
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│  /videocut:高清化  （可选）                             │
+│  /chengfeng-videocut-skills:高清化  （可选）             │
 │                                                         │
 │  - 2-pass 编码 + 锐化                                   │
 │  - 自动匹配原片参数，码率 1.2x                          │
@@ -130,7 +157,7 @@ AI 会自动：
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│  /videocut:自更新  （可选）                             │
+│  /chengfeng-videocut-skills:自更新  （可选）             │
 │                                                         │
 │  告诉 AI 你的偏好，它会记住：                           │
 │  - "静音阈值改成 1 秒"                                  │
@@ -147,17 +174,21 @@ AI 会自动：
 | `高清化` | 2-pass + 锐化导出 | 视频文件 | 高清视频 |
 | `导入字幕` | 剪后视频直转字幕 + 推送剪映草稿（默认字号 10 / 行间距 13） | 剪后视频 + 可选原稿 | SRT + 剪映草稿 |
 | `自更新` | 记录偏好 | 用户反馈 | 更新规则文件 |
-| `口播成片` | 分镜稿 + 时间线预览 + 合成导出 | 文章/口播稿/SRT + 视频 + HTML素材 | 3:4 固定帧、一页一源视觉；动画标注默认 RoughJS，时间线预览 + 竖版成片 |
+| `口播成片` | 分镜核对 + 时间线预览 + 合成导出 | 视频 + 字幕 + 可选素材 | 1080x1440 竖版 MP4 |
 
 ## 目录结构
 
 ```
-videocut/
+chengfeng-videocut-skills/
 ├── README.md           # 本文件
+├── package.json        # npm 安装器配置
+├── .npmignore          # npm 发布排除规则
 ├── LICENSE             # Apache-2.0 开源协议
 ├── NOTICE.md           # 官方来源与转载归属声明
 ├── CITATION.cff        # GitHub 引用信息
 ├── .env.example        # API Key 模板
+├── bin/
+│   └── cli.js          # npx 安装入口，从 GitHub 拉取最新 Skills
 ├── 安装/               # 环境安装 skill
 ├── 剪口播/             # 核心：转录 + AI 审核 + 剪辑
 │   ├── SKILL.md        # 流程说明
@@ -179,11 +210,10 @@ videocut/
 │   └── scripts/
 │       └── hd_export.sh
 ├── 自更新/             # 自我进化机制
-└── 口播成片/           # 分镜稿 -> 时间线预览 -> 合成
+└── 口播成片/           # 分镜核对 -> 时间线预览 -> 合成
     ├── SKILL.md
-    ├── templates/
+    ├── templates/      # storyboard-audit.html + timeline-preview.html
     ├── references/
-    ├── agents/
     └── scripts/
 ```
 

@@ -1,255 +1,235 @@
 ---
-name: videocut:口播成片
+name: chengfeng-videocut-skills:口播成片
 description: 口播视频成片 Skill。把文章/口播稿/SRT、剪后视频和 HTML/图片素材串成分镜稿、时间线预览和最终 1080x1440 竖版 MP4。触发词：口播成片、做分镜稿、时间线预览、合成口播视频、导出竖屏MP4
-author: chengfeng / AI产品自由
-source: https://github.com/Agentchengfeng/videocut-skills
-official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
 ---
 
 # 口播成片
 
-## Goal
+## 官方来源
 
-Produce a complete vertical video from two tracks:
-
-- **Original footage track**: real screen recordings,操作录屏, article result pages, or proof clips that should not be redrawn.
-- **HTML visual track**: logic diagrams, information-card pages, image-focus pages, and step animations that replace weak or missing footage.
-
-Do not treat this as only "make PPT". The user-facing workflow has exactly three steps:
+本 Skill 由 **chengfeng / AI产品自由** 原创并维护。
 
 ```text
-分镜稿 -> 时间线预览 -> 合成
+https://github.com/Agentchengfeng/chengfeng-videocut-skills
 ```
 
-All technical work must be grouped under these three steps. Do not present cue tables, modules, review players, final players, or exporters as separate user-facing workflow stages.
+官方账号：GitHub `@Agentchengfeng`；X `@chengfeng240928`；小红书 / 公众号 / B站 / 抖音 / 视频号 `AI产品自由`。
 
-## Source Truth
+## 核心流程
 
-Start by locating these files:
+这个 Skill 只解决一件事：把一条口播视频做成完整竖屏成片。
 
-- Article or口播稿, usually `docs/04-*`, `docs/06-*`, or a confirmed script.
-- Subtitle file, usually `video.srt` or `subtitles_with_time.json`.
-- Edited source video, usually `_cut.mp4`.
-- Existing article images/screenshots, usually `assets/` or `hyperframes-*/assets/from-article/`.
-- Existing project rules: read local `AGENTS.md` and project `README.md` when present.
+```text
++-----------------------------+
+|  输入                         |
+|  视频 + 字幕 + 可选素材         |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+|  1. 分镜稿                    |
+|  按字幕拆段 + 决定画面来源      |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+|  2. 时间线预览                 |
+|  原视频/截图/HTML 与口播对齐    |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+|  3. 合成                       |
+|  导出 1080x1440 竖版 MP4       |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+|  验收                         |
+|  ffprobe + 抽关键帧检查         |
++-----------------------------+
+```
 
-If the user gives a prior session log, use it only to find source paths and decisions; verify with real files.
+不要把 cue 表、HTML 模块、review player、final player、导出脚本单独讲成用户流程。它们只是“时间线预览”和“合成”里的实现细节。
 
-When an edited source video and final SRT exist, the SRT / actual spoken audio is the source of truth for displayed口播 in storyboard and timeline review pages. The article or draft script can provide intent and cleaner wording, but do not assume it still matches the recorded口播. If the speaker deleted lines during recording, remove those lines from the review transcript and cue alignment.
+## 输入
 
-## Workflow
+先定位这些文件：
 
-### 1. 生成分镜稿
+- 主视频：`source_cut.mp4`、`*_cut.mp4` 或用户指定的剪后视频。
+- 字幕：`subtitles.srt`、`video.srt` 或 `subtitles_with_time.json`。
+- 可选文稿：文章、口播稿、正文草稿，只用于理解意图。
+- 可选素材：`assets/` 里的截图、产品页、评论图、结果页、证明页。
+- 项目规则：如果当前项目有 `AGENTS.md` 或 `README.md`，先读。
 
-The first artifact is the storyboard page. It maps each spoken segment to the material page/asset and the spoken content.
+真相源优先级：
 
-When the minimum input is ready, especially `视频 + 字幕/SRT`, do not create a Markdown storyboard as the default first artifact.
+```text
+实际音频 / 字幕 > 剪后视频画面 > 素材文件 > 文稿草稿
+```
 
-Create an HTML storyboard page directly, usually:
+如果文稿和实际字幕不一致，以字幕和音频为准。
+
+## 第 1 步：分镜稿
+
+默认先做 HTML 分镜核对页，不先写 Markdown 表格。
+
+常见路径：
 
 ```text
 review/storyboard-audit-vN.html
 ```
 
-This page is still a 分镜稿, not the final timeline preview. It must let the user quickly answer:
+默认基于这个模板：
 
-> At this second, what does the viewer see?
+```text
+templates/storyboard-audit.html
+```
 
-Each segment in the HTML page must include:
+分镜稿要让用户回答：
 
-- Time range
-- Subtitle numbers
-- Visual task
-- Visual type: `原视频`, `页面录屏`, `评论截图`, `信息图聚焦`, `HTML 字卡`, `操作录屏`
-- Source asset
-- Camera/action notes
-- Complete transcript for that segment
+```text
+这句话说到这里，观众眼前该看到什么？
+```
 
-Layout requirements:
+每段至少写清楚：
 
-- Left side: use the existing material page or asset directly when the segment maps to one, such as a project `可视化/*.html` page, article screenshot, generated diagram, or proof frame.
-- The visual preview for each segment must represent the final video frame: a fixed 3:4 vertical canvas, not a scrollable webpage. The storyboard audit page itself may scroll between segments, but the left-side visual frame for a segment must not scroll.
-- When using an existing HTML page as material, lock it to the intended viewport state, usually the first screen or a named screenshot/fixed frame. Do not embed a free-scrolling iframe as the visual track. If the first screen cannot be captured or the referenced screenshot is missing, mark it as a material gap instead of substituting a different-looking page.
-- Design inside the 3:4 canvas from the start. Do not draw a taller/wider page and rely on scrolling, browser clipping, or `overflow: hidden` to hide the excess. If content does not fit, split it into multiple fixed frames, use a deliberate crop, or create a timed pan/zoom step.
-- Each fixed visual page should use only one source image, screenshot, video, or HTML material as its main visual. If multiple images/screenshots need to appear, split them into separate fixed frames or timed steps instead of stacking them on one page. Lightweight labels, outlines, arrows, or callouts on top of that single source visual are allowed.
-- Use ASCII storyboard sketches only for segments that do not yet have a suitable material page or asset.
-- Right side: time,字幕编号, visual task, source, motion, and transcript.
-- Transcript / 完整口播 must be visible by default in the audit page. Do not hide it behind a collapsed accordion; if using `<details>`, add the `open` attribute.
-- Existing material pages/images should be embedded as the review visual when practical, with a clickable source link. Do not redraw an existing information graphic unless the user asks.
-- Do not show image filenames, module names, or visible figcaptions directly under the left-side visual media. Put source attribution and links in the right-side source/detail fields or hidden audit metadata instead.
-- The page should be openable as a standalone local HTML file. Do not require a dev server.
+- 时间范围
+- 字幕编号
+- 完整口播
+- 画面任务
+- 画面类型：`原视频`、`页面录屏`、`评论截图`、`信息图聚焦`、`HTML 字卡`、`操作录屏`
+- 素材来源
+- 镜头动作
 
-Only create a Markdown storyboard such as `docs/07-口播分镜-vN.md` when the user explicitly asks for a document version or when another downstream tool requires Markdown.
+画面选择规则：
 
-Decision rules:
+- 真实操作、证明页、结果页、需要可信度的片段：保留原视频。
+- 流程、机制、对比关系、缺素材片段：做 HTML 画面。
+- 已有截图或信息图：优先复用，不要重画。
+- 同一张图多次出现时，每次必须承担不同任务：全貌、局部聚焦、对比、结果复看。
 
-- Use original footage for real operations, proof, article result pages, and moments where authenticity matters.
-- Use HTML for abstract relationships, old/new workflow comparisons, mechanism diagrams, and missing visual material.
-- Reuse existing images. Do not redraw an existing information graphic unless the user asks.
-- If the same image appears twice, each use must have a different task: full view, local focus, contrast, or result review.
+分镜方向确认前，不要进入时间线预览。
 
-### 2. 生成时间线预览
+## 第 2 步：时间线预览
 
-After the user accepts the 分镜稿 direction, build a 时间线预览.
+分镜方向确认后，再做时间线预览。
 
-时间线预览 means: original video/audio and replacement visuals are placed on the same timeline, so the user can watch whether the material changes match the spoken line.
+常见路径：
 
-This step includes the old technical tasks:
+```text
+review/timeline-preview.html
+```
 
-- cue table: bind each visual action to a spoken sentence and timestamp.
-- visual modules: prepare one HTML/material scene per replacement segment when needed.
-- preview player: create a timeline page that plays original footage/audio and material visuals together.
+默认基于这个模板：
 
-Create preview artifacts usually under:
+```text
+templates/timeline-preview.html
+```
+
+时间线预览要检查：
+
+- 画面切换是否跟口播句子对齐。
+- 原视频有没有被误换成 HTML。
+- 截图、页面、证明素材有没有用错。
+- 画面有没有挡字、裁切、留黑边。
+- HTML 模块单独看没问题，但放进整条时间线后是否仍然成立。
+
+必要时生成：
 
 ```text
 docs/08-动画cue表-vN.md
 html-modules/module-*.html
-review/timeline-preview.html
 ```
 
-Use `templates/timeline-preview.html` as the default base when creating `review/timeline-preview.html`.
+每个动画动作必须绑定到具体口播句，不要平均分配时间。
 
-Default timeline preview controls:
+## 第 3 步：合成
 
-- Play / pause.
-- Scrubber synced to the original video/audio timeline.
-- Volume control.
-- Speed controls: `1x`, `1.25x`, `1.5x`, `2x`.
+只有用户确认时间线预览后，才能合成。
 
-The speed controls must update the hidden original video clock and any visible original-video segment in the stage, so audio and visual playback stay in sync.
+合成前创建或确认：
 
-Do not distribute animation steps evenly across a page. Bind every movement to the spoken sentence:
-
-> The picture moves only when the spoken sentence reaches that meaning.
-
-Module contract:
-
-- One `.screen` root.
-- 3:4 vertical canvas; final output must support 1080x1440.
-- No scrolling inside `.screen`. The rendered frame must be a fixed state at that timestamp. Long pages must be represented by a captured viewport, crop, pan/zoom animation, or explicit step state, not by a scrollable document.
-- Every visible element must fit within the 3:4 `.screen` at every step. Avoid off-canvas layout, oversized long panels, or content that only becomes acceptable after browser clipping.
-- Internal state controlled by `.step-N` classes.
-- Listen for `postMessage({ type: "set-step", step })`.
-- Include a local preview HUD if useful, but it must be hidden in final render mode.
-- Prefer existing images for information-graphic pages.
-- When an existing information graphic already explains the logic, create an HTML module that uses the original image as the base layer and adds spoken-line highlights, masks, zooms, or callouts on top. Do not redraw the graphic unless the original is unreadable or logically wrong.
-- If the user needs to inspect the original image details, do not dim the whole image with a gray spotlight overlay. Prefer outline-only highlights, small labels, arrows, or gentle glow so the base image stays readable.
-- HTML modules should not add a bottom "画面动作" or explanatory footer inside the visual frame. Motion notes belong in the storyboard detail panel or the timeline cue table, not on the viewer-facing visual.
-- For newly drawn relationship maps, logic diagrams, workflow diagrams, or concept diagrams in HTML modules, prefer Rough.js by default so the visual reads as a purposeful diagram rather than generic CSS cards.
-- Plain CSS cards are acceptable only for simple labels, lists, or wrappers around existing assets. They should not be the default for a new relation graph or mechanism diagram.
-- For animation overlays, use Rough.js as the drawing layer by default: focus boxes, arrows, path lines, result badges, and flow-step flashes should be Rough.js canvas drawings over the single source visual. CSS may position static text or layout wrappers, but CSS borders, CSS arrows, or pulse animations should not be the animation body.
-- Do not redraw a Rough.js overlay on every timeline tick. Cache the current step and redraw only when the step, viewport size, or source image size changes; otherwise the hand-drawn randomization will make the linework flicker.
-- If Rough.js is unavailable or would add fragility to final rendering, use inline SVG as the fallback and keep the diagram explicit: nodes, arrows, grouping, and step states must be visible without relying on long explanatory text.
-- For text-heavy relation diagrams, prefer a line-free numbered-step layout: Rough.js draws one clear box per step, and animation highlights steps in sequence. Avoid connector lines or arrows that cross through labels, paragraphs, or footer notes.
-- If connector lines are required, do not hand-position Rough.js lines. Use a mature graph layout renderer instead:
-  - Mermaid for simple flowcharts and relationship diagrams in standalone HTML modules.
-  - Dagre / dagre-d3 or ELK.js for complex node-link layouts that need more control.
-  - Rough.js can still be used for hand-drawn styling, but not as the layout engine.
-
-Add the render-mode helper after modules exist:
-
-```bash
-node ~/.claude/skills/videocut/口播成片/scripts/write_render_mode.cjs \
-  --project-dir /absolute/path/to/hyperframes-project
+```text
+final-player.html
 ```
 
-This writes `render-mode.js` and injects it into `module-*.html`. Final players should load modules with `?render=1`.
+新写 `final-player.html` 或 HTML 模块前，读取：
 
-The 时间线预览 can include two review surfaces when useful:
+```text
+references/artifact-contracts.md
+```
 
-- `integrated-review.html`: one timeline, original audio/video + HTML modules.
-- `desktop-review.html`: left side original video, right side replacement visuals, same time axis.
-
-Use the 时间线预览 to catch:
-
-- A spoken phrase triggering the wrong visual.
-- A page starting with the wrong logical state.
-- Review transcript still showing draft-script lines that were deleted from the actual口播.
-- Repeated tail words across scene boundaries.
-- HTML modules that look fine alone but fail inside the full timeline.
-- Segments that should remain original footage instead of HTML.
-
-### 3. 合成
-
-Only start 合成 after the 时间线预览 is accepted.
-
-Create `final-player.html` only after review passes.
-
-Final player contract:
-
-- The viewport and `#stage` are exactly `1080x1440`.
-- `window.finalVideo.totalDuration` exposes the total duration.
-- `window.seekTo(time)` switches scene and returns the active state.
-- Video scenes seek the original `_cut.mp4`.
-- HTML scenes load `module-*.html?render=1` and send `set-step`.
-- The final player contains no review UI outside `#stage`.
-
-Read [references/artifact-contracts.md](references/artifact-contracts.md) before implementing a new final player.
-
-Run the bundled exporter:
+如果项目里有 HTML 模块，先注入 render mode：
 
 ```bash
-node ~/.claude/skills/videocut/口播成片/scripts/export_final_video.cjs \
-  --project-dir /absolute/path/to/hyperframes-project \
+node ~/.claude/skills/chengfeng-videocut-skills/口播成片/scripts/write_render_mode.cjs \
+  --project-dir /absolute/path/to/project
+```
+
+导出最终视频：
+
+```bash
+node ~/.claude/skills/chengfeng-videocut-skills/口播成片/scripts/export_final_video.cjs \
+  --project-dir /absolute/path/to/project \
   --input-video /absolute/path/to/source_cut.mp4 \
   --duration 173.03 \
   --output renders/final-1080x1440.mp4
 ```
 
-The script:
+项目与默认值不同时，可传：
 
-- Opens `final-player.html` in Playwright.
-- Seeks the timeline at 30fps.
-- Screenshots `#stage` into `renders/final-video-frames/`.
-- Builds a video-only MP4 with ffmpeg.
-- Muxes the original audio into the final MP4.
-
-Use `--fps`, `--player`, `--stage`, `--frames-dir`, `--width`, and `--height` when the project differs from the default.
-
-Always validate the final MP4:
-
-```bash
-ffprobe -v error \
-  -show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels \
-  -of json /absolute/path/to/final.mp4
+```text
+--fps
+--player
+--stage
+--frames-dir
+--width
+--height
 ```
 
-Expected default:
+## 验收
 
-- `1080x1440`
-- `30fps`
-- Duration matches the source edit
-- Has an audio stream
+导出成功不等于成片正确。必须做两步：
 
-Extract check frames:
+1. 用 `ffprobe` 检查分辨率、帧率、时长和音频。
+2. 抽 3 张以上关键帧，人工看画面是否正确。
 
-```bash
-ffmpeg -y -ss 00:00:09.10 -i final.mp4 -frames:v 1 renders/final-check-009s.jpg
-ffmpeg -y -ss 00:01:31.70 -i final.mp4 -frames:v 1 renders/final-check-092s.jpg
-ffmpeg -y -ss 00:02:51.50 -i final.mp4 -frames:v 1 renders/final-check-172s.jpg
+默认期望：
+
+```text
+1080x1440
+30fps
+时长和剪后源视频一致
+有音频
+无 HUD、按钮、审核时间线、浏览器 UI
 ```
 
-View the frames before reporting success.
+## 边界
 
-## Visual Rules
+适合：
 
-- The screen is a visual track, not subtitles. Do not copy long transcript text onto slides.
-- Use one visual anchor per segment.
-- Existing information graphics should be shown cleanly, then focused or highlighted.
-- Avoid repeated decorative cards. Use cards only for real repeated items or framed tools.
-- Do not add bottom explanation text that competes with the spoken line.
-- In final render mode, no HUD, buttons, review timeline, or browser chrome should appear.
+- 中文口播
+- 教程、产品演示、结果展示、知识讲解
+- 已有剪后视频和字幕，素材可后补
+- 原视频 + 截图 + HTML 解释画面混合成片
 
-## Common Failures
+不优先解决：
 
-- **Animation not aligned**: rebuild the cue table; do not tune timing by feeling.
-- **HUD appears in export**: ensure modules load with `?render=1` and `render-mode.js` is injected.
-- **Iframe crop is wrong**: avoid CSS cropping; make modules render full-size through render mode.
-- **Original footage missing**: mark that segment as needing re-recording, do not fake a proof page with HTML.
-- **Same visual repeats**: split the page or assign different focus tasks.
-- **Export succeeds but video is wrong**: trust ffprobe plus extracted frames, not the command exit code alone.
+- 没有视频，直接凭文稿生成成片
+- 复杂多机位真人剪辑
+- 需要剪辑软件工程文件的精细调色和多轨混音
+- 用户没看分镜稿和时间线预览就直接要求最终发布
 
-## Project Hygiene
+## 项目卫生
 
-If working under the user's writing workspace, update the project README index after adding or changing files. Do not add a README inside this skill folder.
+如果在用户写作工作区内新增或修改文件，必须同步更新项目 README 索引。
+
+不要在这个 Skill 目录里新增 README。这个 Skill 的核心文件只保留：
+
+```text
+SKILL.md
+templates/
+references/
+scripts/
+```

@@ -1,4 +1,0 @@
-interface:
-  display_name: "口播成片"
-  short_description: "把口播、原视频和HTML分镜导出成完整竖屏视频工作流"
-  default_prompt: "Use $videocut:口播成片 to turn this article, SRT, edited source video, and HTML storyboard modules into a complete vertical MP4."

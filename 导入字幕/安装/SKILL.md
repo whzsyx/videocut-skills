@@ -1,8 +1,8 @@
 ---
-name: videocut:安装
+name: chengfeng-videocut-skills:安装
 description: 环境准备。安装依赖、配置 API Key、验证环境。触发词：安装、环境准备、初始化
 author: chengfeng / AI产品自由
-source: https://github.com/Agentchengfeng/videocut-skills
+source: https://github.com/Agentchengfeng/chengfeng-videocut-skills
 official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
 ---
 

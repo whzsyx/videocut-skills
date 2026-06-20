@@ -1,8 +1,8 @@
 ---
-name: videocut:导入字幕
+name: chengfeng-videocut-skills:导入字幕
 description: 视频转录 + AI校对 → 一键生成带花字的剪映草稿（默认）/ 或导出 SRT 文件。触发词：导入字幕、导出字幕、生成剪映草稿、带花字字幕、生成SRT
 author: chengfeng / AI产品自由
-source: https://github.com/Agentchengfeng/videocut-skills
+source: https://github.com/Agentchengfeng/chengfeng-videocut-skills
 official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
 ---
 

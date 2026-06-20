@@ -1,8 +1,8 @@
 ---
-name: videocut:自进化
+name: chengfeng-videocut-skills:自进化
 description: 自进化 skills。记录用户反馈，更新方法论和规则。触发词：更新规则、记录反馈、改进skill
 author: chengfeng / AI产品自由
-source: https://github.com/Agentchengfeng/videocut-skills
+source: https://github.com/Agentchengfeng/chengfeng-videocut-skills
 official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
 ---
 

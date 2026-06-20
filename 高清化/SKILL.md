@@ -1,8 +1,8 @@
 ---
-name: videocut:高清化
+name: chengfeng-videocut-skills:高清化
 description: 视频高清导出。2-pass编码+锐化，匹配或超越原片画质。触发词：高清化、高清导出、导出高清、渲染高清
 author: chengfeng / AI产品自由
-source: https://github.com/Agentchengfeng/videocut-skills
+source: https://github.com/Agentchengfeng/chengfeng-videocut-skills
 official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
 ---
 

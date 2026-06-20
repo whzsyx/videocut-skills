@@ -16,7 +16,7 @@ Official accounts:
 Original source:
 
 ```text
-https://github.com/Agentchengfeng/videocut-skills
+https://github.com/Agentchengfeng/chengfeng-videocut-skills
 ```
 
 Please keep this attribution when using, copying, translating, redistributing, or adapting this project.

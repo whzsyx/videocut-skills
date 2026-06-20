@@ -1,8 +1,8 @@
 ---
-name: videocut:剪口播
+name: chengfeng-videocut-skills:剪口播
 description: 口播视频转录和口误识别。生成审查稿和删除任务清单。触发词：剪口播、处理视频、识别口误
 author: chengfeng / AI产品自由
-source: https://github.com/Agentchengfeng/videocut-skills
+source: https://github.com/Agentchengfeng/chengfeng-videocut-skills
 official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
 ---
 

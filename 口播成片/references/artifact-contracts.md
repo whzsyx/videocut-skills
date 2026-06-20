@@ -1,32 +1,20 @@
-# Artifact Contracts
+# 口播成片产物契约
 
-## Storyboard Markdown
+这个文件只在需要实现 HTML 模块、时间线预览或最终播放器时读取。普通分镜稿阶段不需要加载。
 
-Use this structure for each segment:
+## 视觉帧规则
 
-```markdown
-## 4. 旧问题：跨软件搬运
+- 所有最终画面都是固定 3:4 竖屏帧，默认 `1080x1440`。
+- `.screen` 内不能滚动；某个时间点的画面必须是固定状态。
+- 长网页必须变成截图视口、裁切、推拉缩放或明确步骤状态，不能直接用可滚动 iframe。
+- 每个视觉帧只保留一个主视觉来源：一张图、一段视频、一个截图或一个 HTML 页面。
+- 可以在主视觉上叠加标签、描边、箭头、圈选、高亮。
+- 不要在画面底部加“画面动作”解释；动作说明放在分镜稿或 cue 表里。
+- 信息图优先复用原图，再做局部高亮，不要默认重画。
 
-**时间**：00:31.5-00:50.8
-**字幕**：17-27
-**画面任务**：让观众看见旧流程为什么麻烦。
-**画面**：HTML 字卡
-**类型**：旧流程图
-**素材来源**：无现成图，重新画 HTML
+## Cue 表
 
-**镜头动作**：
-1. 00:31 先承接“同一条工作流”。
-2. 00:38 再进入“以前：要绕出去”。
-
-**逐字稿**：
-```text
-...
-```
-```
-
-## Cue Table
-
-Each cue is one semantic trigger:
+每个 cue 都是一个语义触发点，必须绑定到口播句子。
 
 ```markdown
 | Cue | 字幕 | 时间 | 口播句子 | 画面动作 |
@@ -34,11 +22,11 @@ Each cue is one semantic trigger:
 | 4-3 | 21 | 00:38.7 | 以前没有 Codex 的话 | 画面切到“以前：要绕出去” |
 ```
 
-Do not use "step 1 / step 2 / step 3" without the spoken sentence.
+不要只写 `step 1 / step 2 / step 3`。没有口播句子的 step 不可靠。
 
-## HTML Module
+## HTML 模块
 
-Minimum module shape:
+最小结构：
 
 ```html
 <section class="screen step-0" id="screen">
@@ -61,11 +49,29 @@ Minimum module shape:
 </script>
 ```
 
-Preview HUD is allowed for manual inspection, but final rendering must hide it through `render-mode.js`.
+要求：
 
-## Final Player
+- 根节点使用 `.screen`。
+- 状态由 `.step-N` 类控制。
+- 监听 `postMessage({ type: "set-step", step })`。
+- 手动检查时可以保留 HUD；最终渲染必须通过 `render-mode.js` 隐藏。
+- 需要手绘感高亮时，用 Rough.js；如果会增加不稳定性，用 SVG 兜底。
+- Rough.js 不要每帧重画，只在 step、视口或图片尺寸变化时重画。
 
-Scene list shape:
+## 时间线预览
+
+预览播放器必须有：
+
+- 播放 / 暂停
+- 和原视频/原音频同步的进度条
+- 音量控制
+- 倍速：`1x`、`1.25x`、`1.5x`、`2x`
+
+倍速必须同时影响隐藏的原视频时钟和可见视频片段，保证音画同步。
+
+## 最终播放器
+
+场景列表结构：
 
 ```js
 const scenes = [
@@ -73,7 +79,7 @@ const scenes = [
   {
     id: "2",
     kind: "html",
-    src: "module-02-reader-comment-proof.html",
+    src: "module-02-proof.html",
     start: 7.62,
     end: 10.82,
     maxStep: 1,
@@ -85,18 +91,18 @@ const scenes = [
 ];
 ```
 
-Required globals:
+必须暴露：
 
 ```js
 window.seekTo = async function seekTo(time) {
-  // Load the active scene, seek video or post set-step to iframe.
+  // 加载当前场景，seek 视频或给 iframe 发送 set-step。
   return { scene: currentScene.id, kind: currentScene.kind, time, step };
 };
 
 window.finalVideo = { scenes, totalDuration };
 ```
 
-Required CSS:
+基础 CSS：
 
 ```css
 html,
@@ -120,13 +126,20 @@ body,
 }
 ```
 
-HTML modules must be loaded with `?render=1`.
+HTML 模块必须用 `?render=1` 加载。最终播放器不能出现控制条、HUD、审核信息或浏览器 UI。
 
-## Review Player
+## 验收命令
 
-Use two players when debugging timing:
+```bash
+ffprobe -v error \
+  -show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels \
+  -of json /absolute/path/to/final.mp4
+```
 
-- `integrated-review.html`: one continuous timeline for broad review.
-- `desktop-review.html`: original video beside replacement visuals.
+抽关键帧示例：
 
-The review player may have controls. The final player must not.
+```bash
+ffmpeg -y -ss 00:00:09.10 -i final.mp4 -frames:v 1 renders/final-check-009s.jpg
+ffmpeg -y -ss 00:01:31.70 -i final.mp4 -frames:v 1 renders/final-check-092s.jpg
+ffmpeg -y -ss 00:02:51.50 -i final.mp4 -frames:v 1 renders/final-check-172s.jpg
+```

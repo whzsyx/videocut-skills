@@ -2,7 +2,7 @@
 架构守护者：一旦此文件夹内容变化，请更新此文件
 -->
 
-# videocut:安装
+# chengfeng-videocut-skills:安装
 
 > 环境准备 skill
 
