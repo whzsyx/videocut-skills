@@ -622,7 +622,7 @@ const html = `<!DOCTYPE html>
   <!-- Loading overlay -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <div class="loading-text">正在剪辑中...</div>
+    <div class="loading-text">正在剪辑并生成字幕...</div>
     <div class="loading-progress-container">
       <div class="loading-progress-bar" id="loadingProgress"></div>
     </div>
@@ -649,7 +649,7 @@ const html = `<!DOCTYPE html>
       <button class="header-btn" onclick="copyDeleteList()" title="复制删除列表">
         <span>&#128203;</span> 字幕
       </button>
-      <button class="header-btn primary" onclick="executeCut()">执行剪辑</button>
+      <button class="header-btn primary" onclick="executeCut()">执行剪辑并生成字幕</button>
     </div>
   </div>
 
@@ -1206,7 +1206,7 @@ const html = `<!DOCTYPE html>
       const estSec = estimatedTime % 60;
       const estText = estMin > 0 ? \`\${estMin}分\${estSec}秒\` : \`\${estSec}秒\`;
 
-      if (!confirm(\`确认执行剪辑？\\n\\n视频时长: \${videoMinutes} 分钟\\n预计耗时: \${estText}\\n\\n点击确定开始\`)) return;
+      if (!confirm(\`确认执行剪辑并生成字幕？\\n\\n视频时长: \${videoMinutes} 分钟\\n预计耗时: \${estText} 起\\n\\n点击确定开始\`)) return;
 
       const segments = [];
       const sortedSelected = Array.from(selected).sort((a, b) => a - b);
@@ -1252,7 +1252,12 @@ const html = `<!DOCTYPE html>
         const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
         if (data.success) {
-          const msg = \`剪辑完成！(耗时 \${totalTime}s)\\n\\n输出文件: \${data.output}\\n\\n时间统计:\\n  原时长: \${formatDuration(data.originalDuration)}\\n  新时长: \${formatDuration(data.newDuration)}\\n  删减: \${formatDuration(data.deletedDuration)} (\${data.savedPercent}%)\`;
+          const subtitleMsg = data.subtitle?.success
+            ? \`\\n\\n字幕文件: \${data.subtitle.srt}\\n基础素材包:\\n  \${data.subtitle.sourceCut}\\n  \${data.subtitle.subtitles}\`
+            : data.subtitle?.error
+              ? \`\\n\\n字幕生成失败: \${data.subtitle.error}\`
+              : '';
+          const msg = \`剪辑完成！(耗时 \${totalTime}s)\\n\\n输出文件: \${data.output}\${subtitleMsg}\\n\\n时间统计:\\n  原时长: \${formatDuration(data.originalDuration)}\\n  新时长: \${formatDuration(data.newDuration)}\\n  删减: \${formatDuration(data.deletedDuration)} (\${data.savedPercent}%)\`;
           alert(msg);
         } else {
           alert('剪辑失败: ' + data.error);
@@ -1293,5 +1298,5 @@ const html = `<!DOCTYPE html>
 
 fs.writeFileSync('review.html', html);
 console.log('✅ 已生成 review.html');
-console.log('📌 启动服务器: python3 -m http.server 8899');
+console.log('📌 启动服务器: node "$SKILL_DIR/scripts/review_server.js" 8899 "$VIDEO_PATH"');
 console.log('📌 打开: http://localhost:8899/review.html');

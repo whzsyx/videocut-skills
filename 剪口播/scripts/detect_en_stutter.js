@@ -11,7 +11,7 @@
  *
  * 接入点(两道关，每次自动跑)：
  *   1. 剪口播 步骤5.4：扫原片 subtitles_words.json，结果并入 auto_selected
- *   2. 导入字幕 成片QC：剪完重转录成片后再扫一遍，抓漏网/剪辑残留
+ *   2. 剪后字幕 QC：剪完重转录成片后再扫一遍，抓漏网/剪辑残留
  */
 const fs = require('fs');
 const file = process.argv[2] || 'subtitles_words.json';

@@ -104,7 +104,7 @@ project/
     |
     v
 剪口播
-转录、识别口误/重复/静音，生成审核页，确认后继续生成剪后字幕
+转录、识别口误/重复/静音，生成审核页，确认后自动剪辑并生成剪后字幕
     |
     v
 口播成片
@@ -132,8 +132,7 @@ project/
 | Skill | 作用 | 常见输入 | 常见输出 |
 | --- | --- | --- | --- |
 | `chengfeng-videocut-skills:安装` | 准备 Node.js、FFmpeg、API Key 等环境 | 无 | 环境检查结果 |
-| `chengfeng-videocut-skills:剪口播` | 准备口播基础素材包：粗剪 + 剪后字幕 | 原始录屏 / 口播视频 | 剪后视频、SRT、审核页 |
-| `chengfeng-videocut-skills:导入字幕` | 单独补跑字幕或推送剪映草稿 | 剪后视频、可选原稿 | SRT、剪映草稿 |
+| `chengfeng-videocut-skills:剪口播` | 准备口播基础素材包：审核确认后自动粗剪 + 剪后字幕 | 原始录屏 / 口播视频 | `source_cut.mp4`、`subtitles.srt`、审核页 |
 | `chengfeng-videocut-skills:口播成片` | 生成分镜页面、时间线预览和最终竖屏 MP4 | 剪后视频、字幕、素材 | 分镜页、预览页、1080x1440 MP4 |
 | `chengfeng-videocut-skills:自进化` | 把使用偏好沉淀回规则 | 用户反馈 | 更新后的规则 |
 
@@ -180,12 +179,6 @@ chengfeng-videocut-skills/
 │   ├── SKILL.md
 │   ├── scripts/
 │   └── 用户习惯/
-├── 导入字幕/
-│   ├── SKILL.md
-│   ├── 安装/
-│   │   └── SKILL.md
-│   ├── references/
-│   └── scripts/
 ├── 口播成片/
 │   ├── SKILL.md
 │   ├── templates/
@@ -205,7 +198,6 @@ chengfeng-videocut-skills/
 log/
 memory/
 output/
-导入字幕/capcut-mate/
 口播成片/agents/
 *.mp4 / *.mov / *.m4a / *.wav / *.zip
 ```

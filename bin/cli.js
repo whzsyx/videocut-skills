@@ -14,7 +14,6 @@ const skillItems = [
   ".env.example",
   "剪口播",
   "口播成片",
-  "导入字幕",
   "自进化"
 ];
 

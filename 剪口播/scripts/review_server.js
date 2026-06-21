@@ -32,6 +32,17 @@ const MIME_TYPES = {
   '.mp4': 'video/mp4',
 };
 
+function replaceSymlink(target, linkPath) {
+  try {
+    if (fs.existsSync(linkPath) || fs.lstatSync(linkPath, { throwIfNoEntry: false })) {
+      fs.rmSync(linkPath, { force: true });
+    }
+  } catch (e) {
+    // Ignore missing or already-removed links.
+  }
+  fs.symlinkSync(target, linkPath);
+}
+
 const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -110,20 +121,53 @@ const server = http.createServer((req, res) => {
         }
 
         // 获取剪辑前后的时长信息
+        const outputPath = path.resolve(outputFile);
         const originalDuration = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "file:${VIDEO_FILE}"`).toString().trim());
-        const newDuration = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "file:${outputFile}"`).toString().trim());
+        const newDuration = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "file:${outputPath}"`).toString().trim());
         const deletedDuration = originalDuration - newDuration;
         const savedPercent = ((deletedDuration / originalDuration) * 100).toFixed(1);
+
+        const outputRoot = path.resolve(process.cwd(), '..', '..');
+        const subtitleDir = path.join(outputRoot, '字幕');
+        const srtPath = path.join(subtitleDir, '3_输出', 'video.srt');
+        const sourceCutLink = path.join(outputRoot, 'source_cut.mp4');
+        const subtitlesLink = path.join(outputRoot, 'subtitles.srt');
+        const subtitleScript = path.join(__dirname, 'generate_srt_for_video.sh');
+
+        let subtitleResult = { skipped: process.env.SKIP_SUBTITLES === '1' };
+        if (!subtitleResult.skipped) {
+          try {
+            console.log('📝 基于剪后视频重新生成字幕...');
+            execSync(`bash "${subtitleScript}" "${outputPath}" "${subtitleDir}"`, { stdio: 'inherit' });
+            replaceSymlink(outputPath, sourceCutLink);
+            replaceSymlink(srtPath, subtitlesLink);
+            subtitleResult = {
+              success: true,
+              srt: srtPath,
+              sourceCut: sourceCutLink,
+              subtitles: subtitlesLink
+            };
+          } catch (subtitleErr) {
+            console.error('⚠️ 剪辑已完成，但字幕生成失败:', subtitleErr.message);
+            subtitleResult = {
+              success: false,
+              error: subtitleErr.message
+            };
+          }
+        }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
-          output: outputFile,
+          output: outputPath,
           originalDuration: originalDuration.toFixed(2),
           newDuration: newDuration.toFixed(2),
           deletedDuration: deletedDuration.toFixed(2),
           savedPercent: savedPercent,
-          message: `剪辑完成: ${outputFile}`
+          subtitle: subtitleResult,
+          message: subtitleResult.success
+            ? `剪辑和字幕已完成: ${outputPath}`
+            : `剪辑完成: ${outputPath}`
         }));
 
       } catch (err) {

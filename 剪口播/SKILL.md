@@ -1,6 +1,6 @@
 ---
 name: chengfeng-videocut-skills:剪口播
-description: 口播素材准备。转录口播、识别口误、生成审核页，确认剪辑后继续生成对齐字幕，输出后续口播成片可用的基础素材包。触发词：剪口播、处理口播素材、准备口播素材、识别口误
+description: 口播基础素材包生成。转录口播、识别口误、生成审核页；用户确认后自动剪辑并重新生成剪后 SRT，输出后续口播成片可用的 source_cut.mp4 和 subtitles.srt。触发词：剪口播、处理口播素材、准备口播素材、识别口误、基础素材包
 author: chengfeng / AI产品自由
 source: https://github.com/Agentchengfeng/chengfeng-videocut-skills
 official_accounts: GitHub @Agentchengfeng；X @chengfeng240928；小红书/公众号/B站/抖音/视频号 @AI产品自由
@@ -28,7 +28,7 @@ pos: 口播素材准备入口；默认完成粗剪 + 剪后字幕
 用户: 把这条录屏做成基础素材包
 ```
 
-默认不要把“剪口播”和“导入字幕”拆成两次用户流程。
+不要再把字幕生成拆成单独 Skill。`剪口播` 是口播基础素材包的唯一入口。
 
 用户给一条口播录屏后，本 Skill 默认产出后续 `口播成片` 可直接使用的基础素材包：
 
@@ -38,7 +38,7 @@ subtitles.srt        # 和剪后视频对齐的字幕
 assets/              # 可选截图、评论图、结果页
 ```
 
-`导入字幕` 仍然保留为独立补跑入口；但在主流程里，它是 `剪口播` 完成后的下一步，不要求用户再单独理解一个新 Skill。
+字幕生成已经并入审核服务器：用户在审核页确认剪辑后，服务器自动基于剪后视频重新生成 `subtitles.srt`。
 
 ## 输出目录结构
 
@@ -82,15 +82,15 @@ output/
     ↓
 7. 启动审核服务器，用户网页确认
     ↓
-【等待用户确认】→ 网页点击「执行剪辑」或手动 /剪辑
+【等待用户确认】→ 网页点击「执行剪辑并生成字幕」
     ↓
-8. 基于剪后视频继续跑 chengfeng-videocut-skills:导入字幕
+8. 服务器自动剪辑，并基于剪后视频重新转写生成 SRT
     ↓
 9. 整理基础素材包：剪后视频 + SRT + 可选 assets/
 ```
 
-如果用户明确说“只剪口播，不要字幕”，才在第 7 步停止。
-否则默认继续生成剪后字幕。
+如果用户明确说“只剪口播，不要字幕”，启动服务器时设置 `SKIP_SUBTITLES=1`。
+否则审核页点击确认后，默认自动继续生成剪后字幕。
 
 ## 执行步骤
 
@@ -337,24 +337,24 @@ node "$SKILL_DIR/scripts/review_server.js" 8899 "$VIDEO_PATH"
 用户在网页中：
 - 播放视频画面确认
 - 勾选/取消删除项
-- 点击「执行剪辑」
+- 点击「执行剪辑并生成字幕」
 
 ### 步骤 8-9: 生成剪后字幕并整理素材包
 
-剪辑确认后，不要停在“剪完了”。
+点击审核页按钮后，`review_server.js` 会自动调用：
 
-继续调用：
-
-```text
-chengfeng-videocut-skills:导入字幕
+```bash
+"$SKILL_DIR/scripts/generate_srt_for_video.sh" "剪后视频.mp4" "output/YYYY-MM-DD_视频名/字幕"
 ```
 
-输入必须是剪后视频，不是原始视频。
+字幕必须基于剪后视频重新转写，不能用原始视频字幕反推。
 
 产物至少包括：
 
 ```text
 output/YYYY-MM-DD_视频名/字幕/3_输出/video.srt
+output/YYYY-MM-DD_视频名/source_cut.mp4
+output/YYYY-MM-DD_视频名/subtitles.srt
 ```
 
 如果用户下一步要跑 `口播成片`，把产物整理成这个心智：
@@ -365,7 +365,7 @@ subtitles.srt   = 剪后字幕 SRT
 assets/         = 可选素材
 ```
 
-不一定必须复制或改名文件；但给用户汇报时，要明确指出哪一个文件对应 `source_cut.mp4`，哪一个文件对应 `subtitles.srt`。
+`source_cut.mp4` 和 `subtitles.srt` 可以是符号链接；给用户汇报时，要明确指出它们已经指向剪后视频和剪后字幕。
 
 ---
 
