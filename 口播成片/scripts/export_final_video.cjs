@@ -51,6 +51,7 @@ async function main() {
   const projectDir = path.resolve(requireArg(args, "project-dir"));
   const inputVideo = path.resolve(requireArg(args, "input-video"));
   const player = args.player || "final-player.html";
+  const playerUrl = args["player-url"] || "";
   const fps = Number(args.fps || 30);
   const width = Number(args.width || 1080);
   const height = Number(args.height || 1440);
@@ -75,7 +76,8 @@ async function main() {
   page.setDefaultTimeout(0);
 
   const playerPath = path.join(projectDir, player);
-  await page.goto(`file://${playerPath}`, { waitUntil: "load" });
+  const targetUrl = playerUrl || `file://${playerPath}`;
+  await page.goto(targetUrl, { waitUntil: "load" });
 
   let duration = Number(args.duration || 0);
   if (!duration) {
