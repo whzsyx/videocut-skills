@@ -217,7 +217,8 @@
       box-shadow: 0 18px 42px rgba(0, 0, 0, .30);
     }
 
-    .recording-window video {
+    .recording-window video,
+    .recording-window canvas {
       width: 100%;
       height: 100%;
       border: 0;
@@ -227,6 +228,7 @@
     }
 
     #stage video,
+    #stage canvas,
     #stage iframe,
     #stage img {
       width: 100%;
@@ -236,9 +238,13 @@
       background: #fffdf8;
     }
 
-    #stage video {
+    #stage video,
+    #stage canvas {
       object-fit: contain;
       background: #101114;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: contain;
     }
 
     #stage img {
@@ -625,6 +631,7 @@
       height: 100%;
       opacity: 0;
       cursor: pointer;
+      pointer-events: none;
     }
 
     #clock {
@@ -762,6 +769,7 @@
     const stage = document.getElementById("stage");
     const playButton = document.getElementById("playButton");
     const scrubber = document.getElementById("scrubber");
+    const track = document.getElementById("track");
     const volume = document.getElementById("volume");
     const timeNow = document.getElementById("timeNow");
     const timeTotal = document.getElementById("timeTotal");
@@ -792,8 +800,13 @@
 
     let currentScene = null;
     let stageVideo = null;
+    let stageCanvas = null;
+    let stageCanvasContext = null;
     let stageFrame = null;
     let raf = null;
+    let displayTime = 0;
+    let isScrubbing = false;
+    let resumeAfterScrub = false;
     let noteState = loadNoteState();
 
     clock.src = VIDEO_SRC;
@@ -905,6 +918,8 @@
       currentScene = scene;
       stage.innerHTML = "";
       stageVideo = null;
+      stageCanvas = null;
+      stageCanvasContext = null;
       stageFrame = null;
       const stageShell = document.querySelector(".stage-shell");
       const useVideoWindow = scene.kind === "video" && scene.videoLayout === "window";
@@ -913,19 +928,19 @@
       stageShell.classList.toggle("image-side-border-mode", scene.kind === "image" && scene.imageLayout === "side-border");
 
       if (scene.kind === "video") {
-        stageVideo = document.createElement("video");
-        stageVideo.src = VIDEO_SRC;
-        stageVideo.muted = true;
-        stageVideo.playsInline = true;
-        stageVideo.preload = "auto";
+        stageCanvas = document.createElement("canvas");
+        stageCanvas.className = "source-frame";
+        if (scene.poster) stageCanvas.style.backgroundImage = `url("${scene.poster}")`;
+        stageCanvasContext = stageCanvas.getContext("2d");
         if (useVideoWindow) {
           const recordingWindow = document.createElement("div");
           recordingWindow.className = "recording-window";
-          recordingWindow.appendChild(stageVideo);
+          recordingWindow.appendChild(stageCanvas);
           stage.appendChild(recordingWindow);
         } else {
-          stage.appendChild(stageVideo);
+          stage.appendChild(stageCanvas);
         }
+        drawClockFrame();
       } else if (scene.kind === "image") {
         const image = document.createElement("img");
         image.src = sceneUrl(scene);
@@ -953,6 +968,42 @@
       renderTrack(scene.id);
     }
 
+    function drawClockFrame() {
+      if (!stageCanvas || !stageCanvasContext || clock.readyState < 2 || !clock.videoWidth || !clock.videoHeight) return;
+      if (stageCanvas.width !== clock.videoWidth || stageCanvas.height !== clock.videoHeight) {
+        stageCanvas.width = clock.videoWidth;
+        stageCanvas.height = clock.videoHeight;
+      }
+      try {
+        stageCanvasContext.clearRect(0, 0, stageCanvas.width, stageCanvas.height);
+        stageCanvasContext.drawImage(clock, 0, 0, stageCanvas.width, stageCanvas.height);
+      } catch (_) {}
+    }
+
+    function syncClockTo(time) {
+      const target = Math.max(0, Math.min(totalDuration, Number(time || 0)));
+      return new Promise(resolve => {
+        if (clock.readyState < 1) {
+          clock.addEventListener("loadedmetadata", () => syncClockTo(target).then(resolve), { once: true });
+          return;
+        }
+        const done = () => {
+          drawClockFrame();
+          resolve();
+        };
+        if (Math.abs(clock.currentTime - target) <= .08) {
+          done();
+          return;
+        }
+        const timeout = window.setTimeout(done, 1800);
+        clock.addEventListener("seeked", () => {
+          window.clearTimeout(timeout);
+          done();
+        }, { once: true });
+        try { clock.currentTime = target; } catch (_) { done(); }
+      });
+    }
+
     function stepForScene(scene, time) {
       if (scene.stepCues && scene.stepCues.length) {
         let step = scene.stepCues[0].step || 0;
@@ -967,6 +1018,8 @@
     }
 
     function syncStage(time) {
+      displayTime = Math.max(0, Math.min(totalDuration, Number(time || 0)));
+      time = displayTime;
       const scene = activeSceneAt(time);
       renderStage(scene);
       stageCue.textContent = dynamicCue(scene, time);
@@ -975,12 +1028,7 @@
       scrubber.value = time;
       timeNow.textContent = formatTime(time);
 
-      if (scene.kind === "video" && stageVideo) {
-        if (Math.abs(stageVideo.currentTime - time) > .08) stageVideo.currentTime = time;
-        stageVideo.playbackRate = clock.playbackRate;
-        if (!clock.paused && stageVideo.paused) stageVideo.play().catch(() => {});
-        if (clock.paused && !stageVideo.paused) stageVideo.pause();
-      }
+      if (scene.kind === "video") drawClockFrame();
       if ((scene.kind === "module" || scene.kind === "iframe") && stageFrame && stageFrame.contentWindow) {
         const step = stepForScene(scene, time);
         try { stageFrame.contentWindow.__VIDEO_CURRENT_TIME__ = time; } catch (_) {}
@@ -990,13 +1038,16 @@
     }
 
     function tick() {
-      syncStage(clock.currentTime || 0);
+      const time = !clock.paused && clock.readyState >= 1 ? clock.currentTime : displayTime;
+      syncStage(time);
       raf = requestAnimationFrame(tick);
     }
 
     function seekTo(time) {
-      clock.currentTime = Math.max(0, Math.min(totalDuration, Number(time || 0)));
-      syncStage(clock.currentTime);
+      const nextTime = Math.max(0, Math.min(totalDuration, Number(time || 0)));
+      displayTime = nextTime;
+      syncClockTo(nextTime);
+      syncStage(nextTime);
     }
 
     function getInitialTime() {
@@ -1090,22 +1141,68 @@
 
     playButton.addEventListener("click", async () => {
       if (clock.paused) {
+        await syncClockTo(displayTime);
         await clock.play();
-        if (stageVideo) stageVideo.play().catch(() => {});
         playButton.textContent = "暂停";
       } else {
         clock.pause();
-        if (stageVideo) stageVideo.pause();
         playButton.textContent = "播放";
       }
     });
 
+    function timeFromTrackPointer(event) {
+      const rect = track.getBoundingClientRect();
+      const progress = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      return progress * totalDuration;
+    }
+
+    function scrubToPointer(event) {
+      seekTo(timeFromTrackPointer(event));
+    }
+
+    function beginScrub(event) {
+      isScrubbing = true;
+      resumeAfterScrub = !clock.paused;
+      clock.pause();
+      event.preventDefault();
+      scrubToPointer(event);
+    }
+
+    function moveScrub(event) {
+      if (!isScrubbing) return;
+      event.preventDefault();
+      scrubToPointer(event);
+    }
+
+    function endScrub() {
+      if (!isScrubbing) return;
+      isScrubbing = false;
+      if (resumeAfterScrub) syncClockTo(displayTime).then(() => clock.play().catch(() => {}));
+      resumeAfterScrub = false;
+    }
+
     scrubber.addEventListener("input", () => seekTo(Number(scrubber.value)));
-    document.getElementById("track").addEventListener("click", event => {
-      if (event.target === scrubber) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      seekTo(((event.clientX - rect.left) / rect.width) * totalDuration);
+    track.addEventListener("pointerdown", event => {
+      if (event.button !== undefined && event.button !== 0) return;
+      try { track.setPointerCapture?.(event.pointerId); } catch (_) {}
+      beginScrub(event);
     });
+    track.addEventListener("pointermove", event => {
+      moveScrub(event);
+    });
+    function finishScrub(event) {
+      try { track.releasePointerCapture?.(event.pointerId); } catch (_) {}
+      endScrub();
+    }
+    track.addEventListener("pointerup", finishScrub);
+    track.addEventListener("pointercancel", finishScrub);
+    track.addEventListener("mousedown", event => {
+      if (event.button !== 0) return;
+      beginScrub(event);
+    });
+    window.addEventListener("mousemove", moveScrub);
+    window.addEventListener("mouseup", endScrub);
+    track.addEventListener("click", scrubToPointer);
 
     volume.addEventListener("input", () => {
       clock.volume = Number(volume.value);
@@ -1115,7 +1212,6 @@
       button.addEventListener("click", () => {
         const rate = Number(button.dataset.speed);
         clock.playbackRate = rate;
-        if (stageVideo) stageVideo.playbackRate = rate;
         document.querySelectorAll(".speed-btn").forEach(item => item.classList.toggle("active", item === button));
       });
     });
@@ -1129,8 +1225,10 @@
     clock.addEventListener("play", () => { playButton.textContent = "暂停"; });
     clock.addEventListener("pause", () => {
       playButton.textContent = "播放";
-      if (stageVideo) stageVideo.pause();
     });
+    clock.addEventListener("loadedmetadata", () => seekTo(displayTime || getInitialTime()), { once: true });
+    clock.addEventListener("loadeddata", drawClockFrame);
+    clock.addEventListener("seeked", drawClockFrame);
 
     window.addEventListener("keydown", event => {
       const tag = document.activeElement?.tagName;

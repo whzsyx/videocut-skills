@@ -138,6 +138,14 @@ templates/timeline-preview.html
 - 画面有没有挡字、裁切、留黑边。
 - HTML 模块单独看没问题，但放进整条时间线后是否仍然成立。
 
+预览页里有源视频时，必须用支持 HTTP Range 的服务打开页面，否则浏览器不能随机 seek，进度条会被拉回开头。不要用普通 `python -m http.server` 预览 MP4 时间线。默认使用：
+
+```bash
+node ~/.Codex/skills/chengfeng-videocut-skills/口播成片/scripts/serve_range_preview.cjs \
+  --project-dir /absolute/path/to/project \
+  --port 8767
+```
+
 必要时生成：
 
 ```text
