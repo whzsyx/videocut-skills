@@ -260,7 +260,23 @@
     }
 
     #stage img {
+      width: calc(100% - 32px);
+      height: calc(100% - 32px);
       object-fit: contain;
+      background: #fffdf8;
+    }
+
+    .stage-shell.image-small-mode #stage {
+      padding: 10%;
+      background: #f4efe6;
+    }
+
+    .stage-shell.image-small-mode #stage img {
+      width: 72%;
+      height: auto;
+      max-height: 72%;
+      border-radius: 10px;
+      box-shadow: 0 18px 46px rgba(0, 0, 0, .20);
       background: #fffdf8;
     }
 
@@ -897,18 +913,25 @@
       stage.innerHTML = "";
       stageVideo = null;
       stageFrame = null;
-      document.querySelector(".stage-shell").classList.toggle("video-window-mode", scene.kind === "video");
+      const stageShell = document.querySelector(".stage-shell");
+      const useVideoWindow = scene.kind === "video" && scene.videoLayout === "window";
+      stageShell.classList.toggle("video-window-mode", useVideoWindow);
+      stageShell.classList.toggle("image-small-mode", scene.kind === "image" && scene.imageLayout === "small");
 
       if (scene.kind === "video") {
-        const recordingWindow = document.createElement("div");
-        recordingWindow.className = "recording-window";
         stageVideo = document.createElement("video");
         stageVideo.src = VIDEO_SRC;
         stageVideo.muted = true;
         stageVideo.playsInline = true;
         stageVideo.preload = "auto";
-        recordingWindow.appendChild(stageVideo);
-        stage.appendChild(recordingWindow);
+        if (useVideoWindow) {
+          const recordingWindow = document.createElement("div");
+          recordingWindow.className = "recording-window";
+          recordingWindow.appendChild(stageVideo);
+          stage.appendChild(recordingWindow);
+        } else {
+          stage.appendChild(stageVideo);
+        }
       } else if (scene.kind === "image") {
         const image = document.createElement("img");
         image.src = sceneUrl(scene);
