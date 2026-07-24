@@ -10,6 +10,7 @@ import { z } from "zod";
 
 const templateUri = "ui://chengfeng-videocut/workflow-confirm-v1.html";
 const revision = z.string().regex(/^[a-f0-9]{64}$/, "revision must be a SHA-256 string");
+const optionalDocumentRevision = z.union([revision, z.literal("none")]);
 const stages = [
   "cut_review_ready",
   "storyboard_review_ready",
@@ -83,7 +84,7 @@ const optionSchema = z.object({
   nextStep: z.string(),
 });
 
-const server = new McpServer({ name: "chengfeng-videocut", version: "0.1.0" });
+const server = new McpServer({ name: "chengfeng-videocut", version: "0.2.1" });
 
 registerAppResource(
   server,
@@ -115,6 +116,7 @@ registerAppTool(
       stage: z.enum(stages),
       expectedProjectRevision: revision,
       expectedCutsRevision: revision.optional(),
+      expectedEditListRevision: optionalDocumentRevision.optional(),
       selectedCount: z.number().int().nonnegative().optional(),
       removedDuration: z.number().nonnegative().optional(),
     },
@@ -125,6 +127,7 @@ registerAppTool(
       stage: z.string(),
       expectedProjectRevision: z.string(),
       expectedCutsRevision: z.string().optional(),
+      expectedEditListRevision: z.string().optional(),
       selectedId: z.string(),
       reviewSummary: z.string(),
       options: z.array(optionSchema),
@@ -145,6 +148,9 @@ registerAppTool(
     if (input.stage === "cut_review_ready" && !input.expectedCutsRevision) {
       throw new Error("cut_review_ready requires expectedCutsRevision");
     }
+    if (input.stage === "cut_review_ready" && !input.expectedEditListRevision) {
+      throw new Error("cut_review_ready requires expectedEditListRevision");
+    }
     const details = [];
     if (Number.isFinite(input.selectedCount)) details.push(`已选 ${input.selectedCount} 个删除区间`);
     if (Number.isFinite(input.removedDuration)) details.push(`预计删除 ${input.removedDuration.toFixed(1)} 秒`);
@@ -156,6 +162,9 @@ registerAppTool(
       stage: input.stage,
       expectedProjectRevision: input.expectedProjectRevision,
       ...(input.expectedCutsRevision ? { expectedCutsRevision: input.expectedCutsRevision } : {}),
+      ...(input.expectedEditListRevision
+        ? { expectedEditListRevision: input.expectedEditListRevision }
+        : {}),
       selectedId: "confirm",
       reviewSummary: details.length > 0 ? details.join("，") : "审核状态与 revision 已保存",
       options: optionsFor(input.stage),

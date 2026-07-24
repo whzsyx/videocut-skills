@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "product": "chengfeng-videocut",
+  "repository": "Agentchengfeng/chengfeng-videocut",
+  "releaseTag": "v0.2.0",
+  "releaseVersion": "0.2.0",
+  "minimumRuntimeVersion": "0.2.0",
+  "installerAsset": "install.sh",
+  "checksumAsset": "SHA256SUMS.txt",
+  "studioCapabilities": {
+    "topLevelViews": [
+      "storyboard",
+      "preview",
+      "koubo"
+    ],
+    "legacyWorkbenchPanel": false,
+    "managedTimelineEditing": true,
+    "managedTimelineOperations": [
+      "move",
+      "trim",
+      "split",
+      "delete"
+    ]
+  },
+  "capabilities": {
+    "runtimeApiVersion": 1,
+    "editListSchemaVersion": 1,
+    "editListOperations": [
+      "move",
+      "trim",
+      "split",
+      "delete"
+    ],
+    "managedArollProjection": true,
+    "expectedEditListRevision": true,
+    "serviceApiVersion": 1,
+    "serviceOperations": [
+      "install",
+      "start",
+      "stop",
+      "restart",
+      "status",
+      "logs",
+      "ensure"
+    ],
+    "managedStudioService": true,
+    "serviceParentProcessIndependent": true,
+    "serviceCrashRestart": true
+  }
+}

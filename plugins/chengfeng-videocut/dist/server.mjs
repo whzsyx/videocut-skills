@@ -6647,7 +6647,7 @@ var review_confirm_default = `<!doctype html>
       const fallback = {
         title: "口播审核确认", prompt: "选择下一步。", reviewSummary: "审核状态已保存",
         projectId: "preview", stage: "cut_review_ready", expectedProjectRevision: "preview",
-        expectedCutsRevision: "preview", selectedId: "confirm",
+        expectedCutsRevision: "preview", expectedEditListRevision: "preview", selectedId: "confirm",
         options: [{ id: "confirm", action: "continue_cut", label: "确认剪切", badge: "推荐", description: "按当前审核结果继续。", nextStep: "物理剪切" }]
       };
       let data = window.openai?.toolOutput || fallback;
@@ -6688,6 +6688,7 @@ var review_confirm_default = `<!doctype html>
           \`expectedProjectRevision=\${data.expectedProjectRevision}\`,
         ];
         if (data.expectedCutsRevision) lines.push(\`expectedCutsRevision=\${data.expectedCutsRevision}\`);
+        if (data.expectedEditListRevision) lines.push(\`expectedEditListRevision=\${data.expectedEditListRevision}\`);
         if (note.value.trim()) lines.push(\`note=\${note.value.trim().replaceAll("\\n", " ")}\`);
         if (!window.openai?.sendFollowUpMessage) { status.textContent = "预览模式：安装插件后会提交到当前对话。"; return; }
         submit.disabled = true; status.textContent = "正在提交...";
@@ -27231,6 +27232,7 @@ class StdioServerTransport {
 // server.mjs
 var templateUri = "ui://chengfeng-videocut/workflow-confirm-v1.html";
 var revision = exports_external.string().regex(/^[a-f0-9]{64}$/, "revision must be a SHA-256 string");
+var optionalDocumentRevision = exports_external.union([revision, exports_external.literal("none")]);
 var stages = [
   "cut_review_ready",
   "storyboard_review_ready",
@@ -27300,7 +27302,7 @@ var optionSchema = exports_external.object({
   description: exports_external.string(),
   nextStep: exports_external.string()
 });
-var server = new McpServer({ name: "chengfeng-videocut", version: "0.1.0" });
+var server = new McpServer({ name: "chengfeng-videocut", version: "0.2.1" });
 ak(server, "workflow-confirm-card", templateUri, {}, async () => ({
   contents: [{
     uri: templateUri,
@@ -27321,6 +27323,7 @@ hk(server, "show_workflow_confirmation", {
     stage: exports_external.enum(stages),
     expectedProjectRevision: revision,
     expectedCutsRevision: revision.optional(),
+    expectedEditListRevision: optionalDocumentRevision.optional(),
     selectedCount: exports_external.number().int().nonnegative().optional(),
     removedDuration: exports_external.number().nonnegative().optional()
   },
@@ -27331,6 +27334,7 @@ hk(server, "show_workflow_confirmation", {
     stage: exports_external.string(),
     expectedProjectRevision: exports_external.string(),
     expectedCutsRevision: exports_external.string().optional(),
+    expectedEditListRevision: exports_external.string().optional(),
     selectedId: exports_external.string(),
     reviewSummary: exports_external.string(),
     options: exports_external.array(optionSchema)
@@ -27350,6 +27354,9 @@ hk(server, "show_workflow_confirmation", {
   if (input.stage === "cut_review_ready" && !input.expectedCutsRevision) {
     throw new Error("cut_review_ready requires expectedCutsRevision");
   }
+  if (input.stage === "cut_review_ready" && !input.expectedEditListRevision) {
+    throw new Error("cut_review_ready requires expectedEditListRevision");
+  }
   const details = [];
   if (Number.isFinite(input.selectedCount))
     details.push(`已选 ${input.selectedCount} 个删除区间`);
@@ -27363,6 +27370,7 @@ hk(server, "show_workflow_confirmation", {
     stage: input.stage,
     expectedProjectRevision: input.expectedProjectRevision,
     ...input.expectedCutsRevision ? { expectedCutsRevision: input.expectedCutsRevision } : {},
+    ...input.expectedEditListRevision ? { expectedEditListRevision: input.expectedEditListRevision } : {},
     selectedId: "confirm",
     reviewSummary: details.length > 0 ? details.join("，") : "审核状态与 revision 已保存",
     options: optionsFor(input.stage)

@@ -60,7 +60,7 @@
       const fallback = {
         title: "口播审核确认", prompt: "选择下一步。", reviewSummary: "审核状态已保存",
         projectId: "preview", stage: "cut_review_ready", expectedProjectRevision: "preview",
-        expectedCutsRevision: "preview", selectedId: "confirm",
+        expectedCutsRevision: "preview", expectedEditListRevision: "preview", selectedId: "confirm",
         options: [{ id: "confirm", action: "continue_cut", label: "确认剪切", badge: "推荐", description: "按当前审核结果继续。", nextStep: "物理剪切" }]
       };
       let data = window.openai?.toolOutput || fallback;
@@ -101,6 +101,7 @@
           `expectedProjectRevision=${data.expectedProjectRevision}`,
         ];
         if (data.expectedCutsRevision) lines.push(`expectedCutsRevision=${data.expectedCutsRevision}`);
+        if (data.expectedEditListRevision) lines.push(`expectedEditListRevision=${data.expectedEditListRevision}`);
         if (note.value.trim()) lines.push(`note=${note.value.trim().replaceAll("\n", " ")}`);
         if (!window.openai?.sendFollowUpMessage) { status.textContent = "预览模式：安装插件后会提交到当前对话。"; return; }
         submit.disabled = true; status.textContent = "正在提交...";
