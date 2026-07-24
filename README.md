@@ -2,31 +2,32 @@
 
 给 Codex 用的中文口播剪辑 Marketplace 插件。
 
-公开入口由两个业务入口和一个支持入口组成：
+公开入口由两个业务入口和两个支持入口组成：
 
 ```text
 剪口播      -> source_cut.mp4 + subtitles.srt
 口播成片    -> final.mp4 + verification.json
 上报 Bug    -> 脱敏草稿 -> 用户确认 -> GitHub Issue URL
+检查更新    -> Marketplace 快照 -> 来源证明 -> 用户确认 -> 复读版本
 ```
 
 插件不复制剪辑产品本体。两个业务 Skill 负责判断和编排，确定性动作由 `chengfeng-videocut` Runtime 的 CLI / API 执行；只有进入人工审核阶段且 Studio 能力匹配时才打开界面。Bug 支持 Skill 不安装 Runtime、不启动 Studio，也不改项目。
 
 ## 安装
 
-发布后用 GitHub-direct npx thin bootstrap 添加 Codex Marketplace。把下列占位符替换为该 bootstrap 已公开的 **40 位 Git commit**；不能使用 `main`、tag 或 `latest`：
+测试通道用 GitHub-direct npx thin bootstrap 添加 Codex Marketplace：
 
 ```bash
-npx -y github:Agentchengfeng/chengfeng-videocut-skills#<published-40hex-bootstrap-commit> install
+npx -y github:Agentchengfeng/chengfeng-videocut-skills#main install
 ```
 
-bootstrap 只调用 Codex 官方 `plugin marketplace add --ref <40hex>` 与 `plugin add`，随后做只读回查；它不复制 Skill 文件，也不会安装、升级、启动或修改 Product Runtime。命令 pin 的 bootstrap commit B 与 manifest pin 的 Plugin commit P 是两份独立身份：npm/GitHub tarball 不需要也不会读取自身 `.git`。Marketplace add 后，bootstrap 只会读取 Codex 创建的 marketplace clone，并要求其 `origin` 严格等于固定 GitHub source、`HEAD` 严格等于 P；任一身份无法证明时以 `marketplace_identity_unverified` 停在 Plugin activation 前。发布前该命令故意不可用，避免把本地 `0.2.1` candidate 当作公开包。
+bootstrap 只调用 Codex 官方 `plugin marketplace add --ref <40hex>` 与 `plugin add`，随后做只读回查；它不复制 Skill 文件，也不会安装、升级、启动或修改 Product Runtime。`main` 只是测试通道；每次运行的 bootstrap B 都在 manifest 中固定 Plugin commit P。npm/GitHub tarball 不需要也不会读取自身 `.git`。Marketplace add 后，bootstrap 只会读取 Codex 创建的 marketplace clone，并要求其 `origin` 严格等于固定 GitHub source、`HEAD` 严格等于 P；任一身份无法证明时以 `marketplace_identity_unverified` 停在 Plugin activation 前。
 
 可先查看拟调用命令或诊断身份（均不安装 Runtime）：
 
 ```bash
-npx -y github:Agentchengfeng/chengfeng-videocut-skills#<published-40hex-bootstrap-commit> install --dry-run
-npx -y github:Agentchengfeng/chengfeng-videocut-skills#<published-40hex-bootstrap-commit> doctor
+npx -y github:Agentchengfeng/chengfeng-videocut-skills#main install --dry-run
+npx -y github:Agentchengfeng/chengfeng-videocut-skills#main doctor
 ```
 
 安装插件后，第一次使用任一业务 Skill 时会先检测产品 Runtime：
@@ -53,7 +54,7 @@ Runtime 默认安装到：
 ~/.chengfeng-videocut
 ```
 
-Plugin 0.2.0 的产品合同固定为 `v0.2.0` Release、Runtime 0.2.0+ EDL 与用户级常驻 service 能力，以及 Studio 的三个顶层视图与 `managedTimelineEditing=true`。首次安装会从这个精确 Release 下载 `install.sh` 和 `SHA256SUMS.txt`，先验证安装器，再让安装器读取同一个 Release 的产品包；不使用会漂移的 `latest`。Release 不存在、资产不全、哈希不匹配或已有 Runtime 不兼容时均停止，不覆盖现有安装，也不回退 v0.1.1。
+Plugin 0.3.0 的产品合同固定为 `v0.2.0` Release、Runtime 0.2.0+ EDL 与用户级常驻 service 能力，以及 Studio 的三个顶层视图与 `managedTimelineEditing=true`。首次安装会从这个精确 Release 下载 `install.sh` 和 `SHA256SUMS.txt`，先验证安装器，再让安装器读取同一个 Release 的产品包；不使用会漂移的 `latest`。Release 不存在、资产不全、哈希不匹配或已有 Runtime 不兼容时均停止，不覆盖现有安装，也不回退 v0.1.1。
 
 每个业务流程在第一次产品 API 前、每次人工审核恢复前都会执行共享 `ensure-running`：
 
@@ -73,7 +74,7 @@ Skill -> Product service ensure -> launchd service ready -> 继续当前流程
 使用“剪口播”处理这条视频。识别口误，等我审核后再物理剪切，并生成剪后字幕。
 ```
 
-技术 ID：`chengfeng-videocut:cut-talking-head`。
+技术 ID：`chengfeng-videocut:chengfeng-cut-talking-head`。
 
 口播成片：
 
@@ -81,7 +82,7 @@ Skill -> Product service ensure -> launchd service ready -> 继续当前流程
 使用“口播成片”把这个项目的剪后视频和字幕做成完整成片。分镜、动画和时间线分别给我审核。
 ```
 
-技术 ID：`chengfeng-videocut:finish-talking-head`。
+技术 ID：`chengfeng-videocut:chengfeng-finish-talking-head`。
 
 直接要求“口播成片”但缺少基础素材包时，Codex 会在同一个任务和 `projectId` 内先补完剪口播，不需要第三个“口播工作台”入口。
 
@@ -91,16 +92,25 @@ Skill -> Product service ensure -> launchd service ready -> 继续当前流程
 使用“上报 Bug”整理刚才的问题。先给我看脱敏后的 GitHub Issue 草稿，确认后再提交。
 ```
 
-技术 ID：`chengfeng-videocut:report-videocut-bug`。它会固定路由到产品或 Skills 仓库、清理常见密钥与本地路径、用脱敏内容指纹查重，并且只在用户确认同一份草稿后提交。
+技术 ID：`chengfeng-videocut:chengfeng-report-videocut-bug`。它会固定路由到产品或 Skills 仓库、清理常见密钥与本地路径、用脱敏内容指纹查重，并且只在用户确认同一份草稿后提交。
+
+检查更新：
+
+```text
+使用“检查更新”检查 chengfeng-videocut Skills 的可信 Marketplace 更新；先报告状态，不要直接激活。
+```
+
+技术 ID：`chengfeng-videocut:chengfeng-check-videocut-updates`。
 
 ## 架构
 
 ```text
 Codex
   |
-  +-- cut-talking-head
-  +-- finish-talking-head
-  +-- report-videocut-bug (支持入口)
+  +-- chengfeng-cut-talking-head
+  +-- chengfeng-finish-talking-head
+  +-- chengfeng-report-videocut-bug (支持入口)
+  +-- chengfeng-check-videocut-updates (支持入口)
   +-- show_workflow_confirmation (MCP App)
   |
   v
@@ -132,9 +142,10 @@ chengfeng-videocut-skills/
 │   ├── scripts/
 │   ├── references/
 │   └── skills/
-│       ├── cut-talking-head/
-│       ├── finish-talking-head/
-│       └── report-videocut-bug/
+│       ├── chengfeng-cut-talking-head/
+│       ├── chengfeng-finish-talking-head/
+│       ├── chengfeng-report-videocut-bug/
+│       └── chengfeng-check-videocut-updates/
 ├── LICENSE
 ├── NOTICE.md
 └── CITATION.cff
@@ -144,13 +155,13 @@ chengfeng-videocut-skills/
 
 ## 发布边界
 
-公开 Runtime v0.1.1 不满足 Plugin 0.2.0 的合同，不能再作为自动安装目标。发布顺序必须是：
+公开 Runtime v0.1.1 不满足 Plugin 0.3.0 的合同，不能再作为自动安装目标。稳定发布顺序必须是：
 
 ```text
 Runtime v0.2.0 Release
   -> install.sh 与产品包进入 SHA256SUMS
   -> 隔离环境首次安装 / doctor / Studio capability / 两条工作流 E2E
-  -> Plugin 0.2.0 Marketplace 发布
+  -> Plugin 0.3.0 Marketplace 发布
 ```
 
 在 Runtime v0.2.0 补齐云端 transcribe/import、内置 renderer 并完成真实项目 E2E 前，不把“两条工作流已经完全自动化”作为公开承诺。
@@ -164,7 +175,7 @@ npm run build
 npm test
 ```
 
-另外运行 Skill validator、Plugin validator，并在隔离 Codex 任务中确认发现两个业务 Skill 和一个 Bug 支持 Skill。
+另外运行 Skill validator、Plugin validator，并在隔离 Codex 任务中确认发现两个业务 Skill 和两个支持 Skill。
 
 ## 官方来源
 
