@@ -8,8 +8,8 @@ const { spawnSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
 const ensureRunning = path.join(root, "scripts", "ensure-running.cjs");
-const cutSkill = fs.readFileSync(path.join(root, "skills", "cut-talking-head", "SKILL.md"), "utf8");
-const finishSkill = fs.readFileSync(path.join(root, "skills", "finish-talking-head", "SKILL.md"), "utf8");
+const cutSkill = fs.readFileSync(path.join(root, "skills", "chengfeng-cut-talking-head", "SKILL.md"), "utf8");
+const finishSkill = fs.readFileSync(path.join(root, "skills", "chengfeng-finish-talking-head", "SKILL.md"), "utf8");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "videocut-ensure-running-test-"));
 
 function writeExecutable(file, body) {

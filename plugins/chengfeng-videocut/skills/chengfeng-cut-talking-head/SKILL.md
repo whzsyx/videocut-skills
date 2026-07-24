@@ -1,5 +1,5 @@
 ---
-name: cut-talking-head
+name: chengfeng-cut-talking-head
 description: 剪辑中文口播原素材：逐词转录、识别口误与重复、生成删词候选、在 Studio 审核后执行可靠物理剪切，并重建剪后字幕。用户说剪口播、处理口误、生成口播基础素材、继续剪口播，或确认卡回传 action=continue_cut / return_cut_review 时使用。不要用于单独安装、单独打开工作台、普通视频编辑或口播分镜成片。
 ---
 
@@ -128,7 +128,7 @@ node "$STUDIO" \
 
 脚本会保留项目 hash，并确认 5190 单一产品入口真的注册了 HyperFrames 顶层 `koubo` 视图。只有返回 `ok=true`，才使用 Codex 内置浏览器打开 `studio.url`，然后停止自动推进，等待用户划词、恢复和保存。公开 Skill 不切换到第二个 Studio 端口。
 
-`studio_capability_missing` 必须停止并说明版本不兼容；可以建议使用 `$report-videocut-bug` 生成脱敏 Issue 草稿。禁止仅因 URL 带有 `?view=koubo` 就认为新界面存在，也禁止回退到任何没有 capability manifest 的旧任务面板。
+`studio_capability_missing` 必须停止并说明版本不兼容；可以建议使用 `$chengfeng-report-videocut-bug` 生成脱敏 Issue 草稿。禁止仅因 URL 带有 `?view=koubo` 就认为新界面存在，也禁止回退到任何没有 capability manifest 的旧任务面板。
 
 不要：
 

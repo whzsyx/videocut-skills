@@ -173,7 +173,7 @@ ${renderList(input.evidence)}${acceptance}
 - 未自动上传视频、转录正文、项目文件或完整日志。
 
 ---
-由 \`chengfeng-videocut:report-videocut-bug\` 生成。
+由 \`chengfeng-videocut:chengfeng-report-videocut-bug\` 生成。
 <!-- chengfeng-videocut-bug-fingerprint: ${issueFingerprint(input)} -->`;
   if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) {
     throw new Error(`脱敏后的 Issue 正文超过 ${MAX_BODY_BYTES} bytes`);

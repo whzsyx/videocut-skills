@@ -19,7 +19,7 @@ ensure-runtime
                                       停止，不回退旧剪辑链
 ```
 
-- Plugin package `0.2.1` 消费的机器可读 Runtime compatibility contract 是 `runtime-requirements.json`：`releaseTag=v0.2.0`、`releaseVersion=0.2.0`、最低 Runtime 为 `0.2.0`，并声明 Runtime EDL 与 Studio 能力集合。
+- Plugin package `0.3.0` 消费的机器可读 Runtime compatibility contract 是 `runtime-requirements.json`：`releaseTag=v0.2.0`、`releaseVersion=0.2.0`、最低 Runtime 为 `0.2.0`，并声明 Runtime EDL 与 Studio 能力集合。
 - 缺失时只从 `v0.2.0` 的精确 Release 下载 `install.sh` 与 `SHA256SUMS.txt`；先校验安装器本身，再执行安装器。安装器收到同一个精确 Release 地址，不得访问 `latest`。
 - `v0.2.0` Release 尚不存在、缺少安装器、缺少安装器校验值或哈希不符时，以 `install_failed` 停止；不得转装公开旧版、源码 clone、npm、bunx 或 DMG。
 - 安装位置是 `CHENGFENG_VIDEOCUT_HOME` 或 `~/.chengfeng-videocut`。
@@ -47,7 +47,7 @@ Product service ensure --json
 - 健康服务会幂等复用；页面或 Codex 父终端关闭不应结束服务。
 - 返回 foreground 身份、未知端口占用、错误 URL、旧版本或不完整 JSON 时 fail-closed；Skill 不杀进程、不换 5191、不回退临时 foreground。
 - `service ensure` 不创建项目、不打开 Studio；仍只在 `*_review_ready` 后执行 `open`。
-- `cut-talking-head` 在项目创建后、第一次 Cuts API 前以及每次审核恢复前 ensure；`finish-talking-head` 在 Runtime 预检后、第一次 workflow API 前以及每次审核恢复前 ensure。
+- `chengfeng-cut-talking-head` 在项目创建后、第一次 Cuts API 前以及每次审核恢复前 ensure；`chengfeng-finish-talking-head` 在 Runtime 预检后、第一次 workflow API 前以及每次审核恢复前 ensure。
 
 机器可读 capability 合同除 EDL 字段外，还要求：`serviceApiVersion=1`、完整 `serviceOperations`、`managedStudioService=true`、`serviceParentProcessIndependent=true`、`serviceCrashRestart=true`。缺少任一字段都返回 `runtime_capability_missing`。
 
@@ -97,8 +97,8 @@ Product open 返回项目 URL
 
 ## 当前 Runtime 兼容门禁
 
-- 公开 Runtime v0.1.1 不具备 Plugin package `0.2.1` 所消费的完整 EDL / Studio compatibility contract，必须被版本与能力门禁拒绝。
-- Runtime `v0.2.0` Release 必须先于 Plugin package `0.2.1` 发布，并至少包含 `install.sh`、`chengfeng-videocut-portable.tar.gz` 与覆盖两者的 `SHA256SUMS.txt`。
+- 公开 Runtime v0.1.1 不具备 Plugin package `0.3.0` 所消费的完整 EDL / Studio compatibility contract，必须被版本与能力门禁拒绝。
+- Runtime `v0.2.0` Release 必须先于 Plugin package `0.3.0` 发布，并至少包含 `install.sh`、`chengfeng-videocut-portable.tar.gz` 与覆盖两者的 `SHA256SUMS.txt`。
 - `v0.2.0` 必须提供正式原视频云端转录命令；缺少时以 `missing_cloud_transcription_adapter` 停止，禁止回退本地 ASR。
 - `v0.2.0` 必须内置可用 renderer；新版 Skill 不得把旧 renderer 重新打包。
 - 没有 HyperFrames 顶层 `koubo` 视图或 capability manifest 的历史 Studio 必须被能力门禁拒绝，不能再作为审核界面回退。
@@ -116,7 +116,7 @@ Release assets + SHA256SUMS（含 install.sh）
 隔离环境首次安装 + doctor + Studio capability 验收
       |
       v
-发布 Plugin package 0.2.1
+发布 Plugin package 0.3.0
 ```
 
-Plugin package 0.2.1 可以先合并代码，但在 Product Runtime v0.2.0 Release 通过验收之前不得公开发布；这段空窗期的预期行为是安全失败，而不是安装 v0.1.1。
+Plugin package 0.3.0 可以先合并代码，但在 Product Runtime v0.2.0 Release 通过验收之前不得公开发布；这段空窗期的预期行为是安全失败，而不是安装 v0.1.1。

@@ -1,5 +1,5 @@
 ---
-name: check-videocut-updates
+name: chengfeng-check-videocut-updates
 description: 检查 chengfeng-videocut Skills 的 Marketplace 更新。用户说检查更新、检查剪辑 Skills 更新、更新 chengfeng-videocut Skills，或在已展示的可信版本后明确确认激活时使用；不用于 Runtime 更新、项目数据迁移或静默安装。
 ---
 
@@ -61,6 +61,6 @@ node "$UPDATE" --marketplace "$marketplaceName" --activate --confirmed \
 
 ## 边界
 
-- Plugin 可升至 `0.2.1`，不等于 Runtime 更新；Runtime 最低兼容/Release 仍由 `runtime-requirements.json` 的 `0.2.0` 合同控制。
+- Plugin 可升至 `0.3.0`，不等于 Runtime 更新；Runtime 最低兼容/Release 仍由 `runtime-requirements.json` 的 `0.2.0` 合同控制。
 - 不把本地 staging、legacy cache 或 local marketplace 说成 remotely updatable。
 - 不发布、不改 Product Runtime、5190、项目数据或媒体；用户确认后官方 Codex activation 是唯一写入例外。

@@ -1,5 +1,5 @@
 ---
-name: report-videocut-bug
+name: chengfeng-report-videocut-bug
 description: 整理、脱敏并上报 chengfeng-videocut 的 GitHub Bug。用户说上报 Bug、反馈剪口播问题、提交 GitHub Issue、这个问题告诉开发者，或要求继续提交已预览的 Bug 草稿时使用。不要用于功能建议、普通排错、代码提交或未获用户确认的自动上报。
 ---
 
@@ -80,7 +80,7 @@ description: 整理、脱敏并上报 chengfeng-videocut 的 GitHub Bug。用户
 ```bash
 PLUGIN_ROOT="$(codex plugin list --json | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const rows = JSON.parse(s).installed || []; const hit = rows.filter(x => x.enabled && x.name === "chengfeng-videocut" && x.source && x.source.path); if (hit.length !== 1) process.exit(1); process.stdout.write(hit[0].source.path); });')"
 test -n "$PLUGIN_ROOT" && test -f "$PLUGIN_ROOT/.codex-plugin/plugin.json" || { echo "chengfeng-videocut enabled plugin root unavailable" >&2; exit 1; }
-REPORT="$PLUGIN_ROOT/skills/report-videocut-bug/scripts/report-bug.cjs"
+REPORT="$PLUGIN_ROOT/skills/chengfeng-report-videocut-bug/scripts/report-bug.cjs"
 node "$REPORT" draft --input "$reportJson" --output "$draftMarkdown" --json
 ```
 

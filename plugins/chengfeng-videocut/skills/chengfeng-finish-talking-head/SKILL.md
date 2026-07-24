@@ -1,5 +1,5 @@
 ---
-name: finish-talking-head
+name: chengfeng-finish-talking-head
 description: 把口播基础素材制作成完整成片：生成并审核分镜、动画和总时间线，随后导出与验收 final.mp4。用户说口播成片、口播分镜、口播动画、导出口播视频、继续口播成片，或确认卡回传 action=continue_finish_storyboard / continue_finish_animation / continue_finish_timeline / return_finish_storyboard / return_finish_animation / return_finish_timeline 时使用。不要用于原始删词、单独安装、单独打开工作台或普通 HyperFrames 视频。
 ---
 
@@ -58,7 +58,7 @@ node "$VC" workflow get "$jobDir" --json
 
 只有文件路径、但 Runtime 没有返回上述 artifact 状态时，以 `artifact_state_unavailable` fail-closed。不得仅因 `source_cut.mp4` 存在就假设它对应当前时间线，也不得让旧成片进入分镜链。
 
-若缺失，切换到 `$cut-talking-head` 完成前置剪辑，再以同一个 `projectId` 恢复本 Skill。不要新增“口播工作台”总控入口，也不要创建第二个项目。
+若缺失，切换到 `$chengfeng-cut-talking-head` 完成前置剪辑，再以同一个 `projectId` 恢复本 Skill。不要新增“口播工作台”总控入口，也不要创建第二个项目。
 
 ## 2. 读取项目配置
 
@@ -180,7 +180,7 @@ confirmed transition
 ```
 
 - 卡片不直接执行任何 destructive action。
-- `studio_capability_missing` 时禁止打开任何没有 capability manifest 的旧 Studio，也不静默回退；可建议 `$report-videocut-bug` 生成脱敏 Issue 草稿。
+- `studio_capability_missing` 时禁止打开任何没有 capability manifest 的旧 Studio，也不静默回退；可建议 `$chengfeng-report-videocut-bug` 生成脱敏 Issue 草稿。
 - `service_identity_mismatch` 或 `service_port_conflict` 时停止；禁止 foreground 启动、换端口或杀未知进程。
 - `return_finish_*` 必须先执行 `node "$RUNNING" --json`，再返回对应审核视图；`pause_workflow` 保存后停止。
 - `revision_conflict` 必须重新读状态，不能静默覆盖。

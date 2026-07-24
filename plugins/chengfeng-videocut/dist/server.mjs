@@ -19915,7 +19915,7 @@ var ct = I("$ZodObjectJIT", (r, i) => {
             })));
           }
         }
-
+        
         if (${F}.value === undefined) {
           if (${Z} in input) {
             newResult[${Z}] = undefined;
@@ -19923,7 +19923,7 @@ var ct = I("$ZodObjectJIT", (r, i) => {
         } else {
           newResult[${Z}] = ${F}.value;
         }
-
+        
       `);
       else
         O.write(`
@@ -19933,7 +19933,7 @@ var ct = I("$ZodObjectJIT", (r, i) => {
             path: iss.path ? [${Z}, ...iss.path] : [${Z}]
           })));
         }
-
+        
         if (${F}.value === undefined) {
           if (${Z} in input) {
             newResult[${Z}] = undefined;
@@ -19941,7 +19941,7 @@ var ct = I("$ZodObjectJIT", (r, i) => {
         } else {
           newResult[${Z}] = ${F}.value;
         }
-
+        
       `);
     }
     O.write("payload.value = newResult;"), O.write("return payload;");
@@ -27302,7 +27302,7 @@ var optionSchema = exports_external.object({
   description: exports_external.string(),
   nextStep: exports_external.string()
 });
-var server = new McpServer({ name: "chengfeng-videocut", version: "0.2.1" });
+var server = new McpServer({ name: "chengfeng-videocut", version: "0.3.0" });
 ak(server, "workflow-confirm-card", templateUri, {}, async () => ({
   contents: [{
     uri: templateUri,
