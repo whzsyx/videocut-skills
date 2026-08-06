@@ -31,7 +31,7 @@ user-invocable: true
 - 功能建议：产品从未承诺该能力；不要伪装成 Bug。
 - 使用疑问：先回答或诊断，不自动上报。
 
-只收集复现所需的最小事实。不得安装 Runtime、启动 Studio、改项目、重新剪片或上传媒体来“补证据”。Runtime 存在时，可从插件根目录执行 `node scripts/ensure-runtime.cjs --json` 做只读探测，只保留 `state / kind / version / healthy / error.code`；不要附完整 doctor 输出。不存在就写“未检测到”。
+只收集复现所需的最小事实。不得安装 Runtime、启动 Studio、改项目、重新剪片或上传媒体来“补证据”。Runtime 存在时，可从插件根目录执行 `node scripts/ensure-runtime.cjs --json` 做只读探测，只保留 `state / kind / version / healthy / error.code`；不要附完整 doctor 输出。`kind=desktop-managed` 只表示安装来源是桌面 App，不授权本 Skill 启动 App、服务或重新安装。不存在就写“未检测到”。
 
 ## 2. 选择固定仓库
 
@@ -78,14 +78,14 @@ user-invocable: true
 
 从当前 `SKILL.md` 定位脚本：
 
-```bash
-PLUGIN_ROOT="$(codex plugin list --json | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const rows = JSON.parse(s).installed || []; const hit = rows.filter(x => x.enabled && x.name === "chengfeng-videocut" && x.source && x.source.path); if (hit.length !== 1) process.exit(1); process.stdout.write(hit[0].source.path); });')"
-test -n "$PLUGIN_ROOT" && test -f "$PLUGIN_ROOT/.codex-plugin/plugin.json" || { echo "chengfeng-videocut enabled plugin root unavailable" >&2; exit 1; }
-REPORT="$PLUGIN_ROOT/skills/chengfeng-report-bug/scripts/report-bug.cjs"
-node "$REPORT" draft --input "$reportJson" --output "$draftMarkdown" --json
-```
+先按[检查更新](../chengfeng-check-updates/SKILL.md)「就绪检查」第一步定位**插件根**
+（从本 Skill 的实际源文件路径向上两级；不得跑 `codex plugin list` 或搜索其他
+cache；下述 `<插件根>` 都代入该字面路径）。本 Skill 只用它定位脚本，
+不装 Runtime、不起服务：
 
-`PLUGIN_ROOT` 只来自上面已启用 Plugin 行的 `source.path`。不要依赖未保证存在的 `SKILL_DIR`、硬编码开发机路径或用目录搜索猜测安装位置。
+```bash
+node "<插件根>/skills/chengfeng-report-bug/scripts/report-bug.cjs" draft --input "<报告JSON文件>" --output "<草稿输出文件>" --json
+```
 
 `target` 必须明确为 `product` 或 `skills`，缺失和拼错都应停止，不能静默改报另一仓库。脚本会清理常见密钥、本地用户名、卷名、路径余段和 localhost 查询参数；自动脱敏不能识别任意客户名，仍必须人工通读。向用户展示：
 
@@ -103,13 +103,7 @@ title
 只对刚刚展示、内容未变化的草稿提交：
 
 ```bash
-node "$REPORT" submit \
-  --input "$reportJson" \
-  --target "$target" \
-  --confirmed \
-  --confirm-token "$confirmationToken" \
-  --receipt "$confirmationReceipt" \
-  --json
+node "<插件根>/skills/chengfeng-report-bug/scripts/report-bug.cjs" submit --input "<报告JSON文件>" --target "<目标仓库>" --confirmed --confirm-token "<确认token>" --receipt "<确认回执文件>" --json
 ```
 
 固定规则：

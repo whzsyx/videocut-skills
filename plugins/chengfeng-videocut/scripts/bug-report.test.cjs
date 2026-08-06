@@ -10,7 +10,8 @@ const root = path.resolve(__dirname, "..");
 const report = path.join(root, "skills", "chengfeng-report-bug", "scripts", "report-bug.cjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "videocut-bug-report-test-"));
 const input = path.join(tmp, "report.json");
-const gh = path.join(tmp, "fake-gh");
+const ghDriver = path.join(tmp, "fake-gh-driver.cjs");
+const gh = path.join(tmp, process.platform === "win32" ? "fake-gh.cmd" : "fake-gh");
 const ghCalled = path.join(tmp, "gh-called");
 const ghBody = path.join(tmp, "gh-body");
 const injectionMarker = path.join(tmp, "injected");
@@ -54,42 +55,58 @@ try {
     ],
   }));
 
-  fs.writeFileSync(gh, `#!/bin/sh
-printf '%s\n' "$*" >> "$GH_CALLED_FILE"
-if [ "$1" = "auth" ]; then
-  [ "$FAKE_GH_MODE" = "auth-fail" ] && exit 1
-  exit 0
-fi
-if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
-  printf '{"hasIssuesEnabled":true}\n'
-  exit 0
-fi
-if [ "$1" = "label" ] && [ "$2" = "list" ]; then
-  printf '[{"name":"bug"}]\n'
-  exit 0
-fi
-if [ "$1" = "issue" ] && [ "$2" = "list" ]; then
-  if [ "$FAKE_GH_MODE" = "duplicate" ]; then
-    previous=""
-    search=""
-    for value in "$@"; do
-      [ "$previous" = "--search" ] && search="$value"
-      previous="$value"
-    done
-    fingerprint="\${search% in:body}"
-    printf '[{"number":9,"title":"existing","url":"https://github.com/Agentchengfeng/chengfeng-videocut/issues/9","body":"<!-- chengfeng-videocut-bug-fingerprint: %s -->"}]\n' "$fingerprint"
-    exit 0
-  fi
-  printf '[]\n'
-  exit 0
-fi
-if [ "$1" = "issue" ] && [ "$2" = "create" ]; then
-  sed -n '1,240p' > "$GH_BODY_FILE"
-  printf 'https://github.com/Agentchengfeng/chengfeng-videocut/issues/123\n'
-  exit 0
-fi
-exit 2
-`, { mode: 0o755 });
+  fs.writeFileSync(ghDriver, `"use strict";
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.GH_CALLED_FILE, \`\${args.join(" ")}\\n\`);
+if (args[0] === "auth") {
+  process.exit(process.env.FAKE_GH_MODE === "auth-fail" ? 1 : 0);
+}
+if (args[0] === "repo" && args[1] === "view") {
+  process.stdout.write('{"hasIssuesEnabled":true}\\n');
+  process.exit(0);
+}
+if (args[0] === "label" && args[1] === "list") {
+  process.stdout.write('[{"name":"bug"}]\\n');
+  process.exit(0);
+}
+if (args[0] === "issue" && args[1] === "list") {
+  if (process.env.FAKE_GH_MODE === "duplicate") {
+    const searchIndex = args.indexOf("--search");
+    const search = searchIndex >= 0 ? String(args[searchIndex + 1] || "") : "";
+    const fingerprint = search.replace(/ in:body$/, "");
+    process.stdout.write(JSON.stringify([{
+      number: 9,
+      title: "existing",
+      url: "https://github.com/Agentchengfeng/chengfeng-videocut/issues/9",
+      body: \`<!-- chengfeng-videocut-bug-fingerprint: \${fingerprint} -->\`,
+    }]) + "\\n");
+    process.exit(0);
+  }
+  process.stdout.write("[]\\n");
+  process.exit(0);
+}
+if (args[0] === "issue" && args[1] === "create") {
+  const body = fs.readFileSync(0, "utf8").split(/\\r?\\n/).slice(0, 240).join("\\n");
+  fs.writeFileSync(process.env.GH_BODY_FILE, body);
+  process.stdout.write("https://github.com/Agentchengfeng/chengfeng-videocut/issues/123\\n");
+  process.exit(0);
+}
+process.exit(2);
+`, "utf8");
+  if (process.platform === "win32") {
+    fs.writeFileSync(
+      gh,
+      `@echo off\r\n"${process.execPath}" "${ghDriver}" %*\r\n`,
+      "utf8",
+    );
+  } else {
+    fs.writeFileSync(
+      gh,
+      `#!/bin/sh\nexec "${process.execPath}" "${ghDriver}" "$@"\n`,
+      { encoding: "utf8", mode: 0o755 },
+    );
+  }
 
   const draft = run(["draft", "--input", input, "--json"]);
   assert.equal(draft.status, 0, draft.stderr);

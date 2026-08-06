@@ -2,6 +2,15 @@
 
 "use strict";
 
+// Node 拒绝直接 spawn .cmd/.bat（CVE-2024-27980 后策略）；Windows 启动器经 cmd.exe 转发。
+function windowsSafeInvocation(command, args) {
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
+    return { command: process.env.ComSpec || "cmd.exe", args: ["/d", "/s", "/c", command, ...args] };
+  }
+  return { command, args };
+}
+
+
 const { spawn } = require("node:child_process");
 const { resolveRuntimeInvocation } = require("./ensure-runtime.cjs");
 
@@ -20,7 +29,8 @@ if (!invocation) {
   process.exit(10);
 }
 
-const child = spawn(invocation.command, invocation.args, {
+const safe = windowsSafeInvocation(invocation.command, invocation.args);
+const child = spawn(safe.command, safe.args, {
   cwd: invocation.cwd,
   env: process.env,
   stdio: "inherit",

@@ -1,0 +1,76 @@
+name: windows-smoke
+
+# Windows 靶机：在真实 x64 Windows 上钉住行为。
+# 2026-08-03 起 Windows 正式支持，断言从「礼貌拒绝」翻成「真的装得上」。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 全部插件脚本语法必须在 Windows Node 下可解析
+        shell: bash
+        run: |
+          set -e
+          for f in plugins/chengfeng-videocut/scripts/*.cjs; do
+            node --check "$f"
+          done
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 装 ffmpeg（doctor 的必需依赖）
+        shell: pwsh
+        run: |
+          $url = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
+          $ok = $false
+          foreach ($i in 1..3) {
+            try { Invoke-WebRequest $url -OutFile ff.zip -TimeoutSec 120; $ok = $true; break }
+            catch { Start-Sleep -Seconds (10 * $i) }
+          }
+          if (-not $ok) { throw 'ffmpeg download failed' }
+          Expand-Archive ff.zip -DestinationPath $env:RUNNER_TEMP\ff
+          $bin = Get-ChildItem -Directory $env:RUNNER_TEMP\ff | Select-Object -First 1
+          Add-Content $env:GITHUB_PATH (Join-Path $bin.FullName 'bin')
+
+      - name: ensure-runtime 在 Windows 必须真的装得上
+        shell: bash
+        run: |
+          set -e
+          set +e
+          node plugins/chengfeng-videocut/scripts/ensure-runtime.cjs --install-if-missing --json > out.json
+          echo "exit=$?"
+          cat out.json
+          set -e
+          node -e 'const j=require("./out.json"); if(j.ok!==true||j.runtime?.state!=="ready") process.exit(1); console.log("runtime ready:", j.runtime.runtimeVersion)'
+
+  plugin-update:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: 安装 Plugin 测试依赖
+        shell: pwsh
+        run: npm --prefix plugins/chengfeng-videocut ci
+      - name: Plugin 全量回归、精确 pin、pnpm shim 与 MCP cache 释放
+        shell: pwsh
+        run: |
+          node --test test/bootstrap.test.cjs
+          npm --prefix plugins/chengfeng-videocut test

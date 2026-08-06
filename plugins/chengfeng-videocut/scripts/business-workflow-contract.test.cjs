@@ -8,6 +8,14 @@ const root = path.resolve(__dirname, "..");
 const contractPath = path.join(root, "references", "business-workflow-contract.md");
 const contract = fs.readFileSync(contractPath, "utf8");
 const cut = fs.readFileSync(path.join(root, "skills", "chengfeng-cut", "SKILL.md"), "utf8");
+const checkUpdates = fs.readFileSync(
+  path.join(root, "skills", "chengfeng-check-updates", "SKILL.md"),
+  "utf8",
+);
+const reportBug = fs.readFileSync(
+  path.join(root, "skills", "chengfeng-report-bug", "SKILL.md"),
+  "utf8",
+);
 
 const phases = [
   "preflight",
@@ -38,6 +46,21 @@ assert.match(cut, /project create[\s\S]*workflow get[\s\S]*cuts get/, "cut must 
 assert.match(cut, /#project\/<projectId>/, "cut review must bind URL hash project identity");
 assert.match(contract, /不产生一次性 Product receipt/, "one-time receipt must remain explicitly out of scope");
 assert.match(contract, /素材库、material-library、上传会话/, "contract must explicitly prohibit asset/upload workflows");
+assert.match(
+  checkUpdates,
+  /桌面版（推荐）[\s\S]*不要求用户把这些工具加入系统 PATH/,
+  "environment manager must document the dependency-bundled Desktop route",
+);
+assert.match(
+  reportBug,
+  /kind=desktop-managed[\s\S]*不授权本 Skill 启动/,
+  "bug reporting must keep the Desktop source read-only",
+);
+assert.doesNotMatch(
+  reportBug,
+  /跑 `codex plugin list --json`/,
+  "bug reporting must locate its own cache without querying another installation",
+);
 
 const skills = fs.readdirSync(path.join(root, "skills")).sort();
 assert.deepEqual(skills, [

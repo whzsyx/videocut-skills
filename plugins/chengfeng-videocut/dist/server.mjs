@@ -3526,7 +3526,12 @@ var require_fast_uri = __commonJS((exports, module) => {
   }
   function resolve(baseURI, relativeURI, options) {
     const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-    const resolved = resolveComponent(parse6(baseURI, schemelessOptions), parse6(relativeURI, schemelessOptions), schemelessOptions, true);
+    const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions);
+    const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions);
+    if (baseMalformed || relativeMalformed) {
+      throw new Error(baseParsed.error || relativeParsed.error || "URI is malformed.");
+    }
+    const resolved = resolveComponent(baseParsed, relativeParsed, schemelessOptions, true);
     schemelessOptions.skipEscape = true;
     return serialize(resolved, schemelessOptions);
   }
@@ -3652,6 +3657,8 @@ var require_fast_uri = __commonJS((exports, module) => {
     return uriTokens.join("");
   }
   var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
+  var AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
+  var AUTHORITY_INTRODUCER_REGION = /^(?:[^#/:?]+:)?([/\\\t\n\r]*)/;
   function getParseError(parsed, matches) {
     if (matches[2] !== undefined && parsed.path && parsed.path[0] !== "/") {
       return 'URI path must start with "/" when authority is present.';
@@ -3679,6 +3686,25 @@ var require_fast_uri = __commonJS((exports, module) => {
         uri = options.scheme + ":" + uri;
       } else {
         uri = "//" + uri;
+      }
+    }
+    const authorityMatch = uri.match(AUTHORITY_PREFIX);
+    if (authorityMatch !== null && authorityMatch[1].indexOf("\\") !== -1) {
+      parsed.error = "URI authority must not contain a literal backslash.";
+      malformedAuthorityOrPort = true;
+    }
+    const introducerMatch = uri.match(AUTHORITY_INTRODUCER_REGION);
+    if (introducerMatch !== null) {
+      const region = introducerMatch[1];
+      const normalizedRegion = region.replace(/[\t\n\r]/g, "");
+      if (normalizedRegion.length >= 2) {
+        if (normalizedRegion.slice(0, 2) !== "//") {
+          parsed.error = parsed.error || "URI authority must not contain a literal backslash.";
+          malformedAuthorityOrPort = true;
+        } else if (region.length !== normalizedRegion.length) {
+          parsed.error = parsed.error || "URI authority introducer must not contain whitespace.";
+          malformedAuthorityOrPort = true;
+        }
       }
     }
     const matches = uri.match(URI_PARSE);
@@ -6704,6 +6730,25 @@ var review_confirm_default = `<!doctype html>
   </body>
 </html>
 `;
+// package.json
+var package_default = {
+  name: "chengfeng-videocut-codex-plugin",
+  version: "0.10.8",
+  private: true,
+  type: "module",
+  scripts: {
+    build: "bun build server.mjs --target=node --format=esm --outfile=dist/server.mjs",
+    test: "node scripts/runtime-preflight.test.cjs && node scripts/ensure-running.test.cjs && node scripts/studio-capability.test.cjs && node scripts/bug-report.test.cjs && node scripts/skill-paths.test.cjs && node scripts/business-workflow-contract.test.cjs && node scripts/update-provenance.test.cjs && node scripts/check-plugin-update.test.cjs && node scripts/check-plugin-update-windows-shim.test.cjs && node scripts/mcp-cache-release-windows.test.cjs && node scripts/mcp-smoke-test.mjs"
+  },
+  dependencies: {
+    "@modelcontextprotocol/ext-apps": "1.0.1",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    zod: "3.25.76"
+  }
+};
+
+// server.mjs
+import { tmpdir } from "node:os";
 
 // node_modules/zod/v3/external.js
 var exports_external = {};
@@ -14575,16 +14620,33 @@ function normalizeObjectSchema(schema) {
   }
   return;
 }
+function getDotPath(path) {
+  if (path.length === 0) {
+    return "object root";
+  }
+  return path.reduce((acc, seg, index) => {
+    if (index === 0) {
+      return String(seg);
+    }
+    if (typeof seg === "number") {
+      return `${acc}[${seg}]`;
+    }
+    return `${acc}.${seg}`;
+  }, "");
+}
 function getParseErrorMessage(error2) {
   if (error2 && typeof error2 === "object") {
+    if ("issues" in error2 && Array.isArray(error2.issues) && error2.issues.length > 0) {
+      return error2.issues.map((i) => {
+        if (!i.path?.length) {
+          return i.message;
+        }
+        return `${i.message} at ${getDotPath(i.path)}`;
+      }).join(`
+`);
+    }
     if ("message" in error2 && typeof error2.message === "string") {
       return error2.message;
-    }
-    if ("issues" in error2 && Array.isArray(error2.issues) && error2.issues.length > 0) {
-      const firstIssue = error2.issues[0];
-      if (firstIssue && typeof firstIssue === "object" && "message" in firstIssue) {
-        return String(firstIssue.message);
-      }
     }
     try {
       return JSON.stringify(error2);
@@ -26041,16 +26103,7 @@ class Server extends Protocol {
     if (!methodSchema) {
       throw new Error("Schema is missing a method literal");
     }
-    let methodValue;
-    if (isZ4Schema(methodSchema)) {
-      const v4Schema = methodSchema;
-      const v4Def = v4Schema._zod?.def;
-      methodValue = v4Def?.value ?? v4Schema.value;
-    } else {
-      const v3Schema = methodSchema;
-      const legacyDef = v3Schema._def;
-      methodValue = legacyDef?.value ?? v3Schema.value;
-    }
+    const methodValue = getLiteralValue(methodSchema);
     if (typeof methodValue !== "string") {
       throw new Error("Schema method literal must be a string");
     }
@@ -27139,11 +27192,21 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
-import process from "node:process";
+import process2 from "node:process";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
+var STDIO_DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+
 class ReadBuffer {
+  constructor(options) {
+    this._maxBufferSize = options?.maxBufferSize ?? STDIO_DEFAULT_MAX_BUFFER_SIZE;
+  }
   append(chunk) {
+    const newSize = (this._buffer?.length ?? 0) + chunk.length;
+    if (newSize > this._maxBufferSize) {
+      this.clear();
+      throw new Error(`ReadBuffer exceeded maximum size of ${this._maxBufferSize} bytes`);
+    }
     this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
   }
   readMessage() {
@@ -27173,18 +27236,23 @@ function serializeMessage(message) {
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 class StdioServerTransport {
-  constructor(_stdin = process.stdin, _stdout = process.stdout) {
+  constructor(_stdin = process2.stdin, _stdout = process2.stdout, options) {
     this._stdin = _stdin;
     this._stdout = _stdout;
-    this._readBuffer = new ReadBuffer;
     this._started = false;
     this._ondata = (chunk) => {
-      this._readBuffer.append(chunk);
-      this.processReadBuffer();
+      try {
+        this._readBuffer.append(chunk);
+        this.processReadBuffer();
+      } catch (error2) {
+        this.onerror?.(error2);
+        this.close().catch(() => {});
+      }
     };
     this._onerror = (error2) => {
       this.onerror?.(error2);
     };
+    this._readBuffer = new ReadBuffer({ maxBufferSize: options?.maxBufferSize });
   }
   async start() {
     if (this._started) {
@@ -27230,6 +27298,7 @@ class StdioServerTransport {
 }
 
 // server.mjs
+process.chdir(tmpdir());
 var templateUri = "ui://chengfeng-videocut/workflow-confirm-v1.html";
 var revision = exports_external.string().regex(/^[a-f0-9]{64}$/, "revision must be a SHA-256 string");
 var optionalDocumentRevision = exports_external.union([revision, exports_external.literal("none")]);
@@ -27302,7 +27371,7 @@ var optionSchema = exports_external.object({
   description: exports_external.string(),
   nextStep: exports_external.string()
 });
-var server = new McpServer({ name: "chengfeng-videocut", version: "0.5.1" });
+var server = new McpServer({ name: "chengfeng-videocut", version: package_default.version });
 ak(server, "workflow-confirm-card", templateUri, {}, async () => ({
   contents: [{
     uri: templateUri,

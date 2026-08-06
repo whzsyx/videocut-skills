@@ -1,6 +1,6 @@
 {
   "name": "chengfeng-videocut",
-  "version": "0.6.1",
+  "version": "0.10.8",
   "description": "Six task-facing chengfeng-videocut Skills: cut, subtitle, visual, export, safe bug reporting, and Marketplace update checks. Shared product boundaries are internal references, not a user-facing Skill.",
   "author": {
     "name": "Chengfeng",

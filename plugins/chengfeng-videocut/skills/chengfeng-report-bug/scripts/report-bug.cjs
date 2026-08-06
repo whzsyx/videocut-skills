@@ -14,6 +14,37 @@ const REPOSITORIES = {
 const MAX_BODY_BYTES = 55 * 1024;
 const RECEIPT_TTL_MS = 30 * 60 * 1000;
 
+function quoteCmdArgument(value) {
+  const text = String(value);
+  if (/[\0\r\n"]/.test(text)) {
+    throw new Error("unsafe Windows command argument");
+  }
+  return `"${text.replaceAll("%", "%%")}"`;
+}
+
+// Node refuses to launch .cmd/.bat files directly on current Windows releases.
+// Delayed expansion stays off, percent expansion is escaped, and every argument
+// remains quoted in the single command line parsed by cmd.exe.
+function windowsSafeInvocation(command, args) {
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
+    return {
+      command: process.env.ComSpec || "cmd.exe",
+      args: [
+        "/d",
+        "/v:off",
+        "/s",
+        "/c",
+        `"${[
+          quoteCmdArgument(command),
+          ...args.map(quoteCmdArgument),
+        ].join(" ")}"`,
+      ],
+      windowsVerbatimArguments: true,
+    };
+  }
+  return { command, args, windowsVerbatimArguments: false };
+}
+
 function isSensitiveKey(key) {
   const normalized = String(key)
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
@@ -265,11 +296,14 @@ function parseArgs(argv) {
 
 function runGh(args, options = {}) {
   const command = process.env.CHENGFENG_VIDEOCUT_GH_BIN || "gh";
-  return spawnSync(command, args, {
+  const invocation = windowsSafeInvocation(command, args);
+  return spawnSync(invocation.command, invocation.args, {
     encoding: "utf8",
     input: options.input,
     timeout: 30000,
     maxBuffer: 4 * 1024 * 1024,
+    windowsHide: true,
+    windowsVerbatimArguments: invocation.windowsVerbatimArguments,
   });
 }
 

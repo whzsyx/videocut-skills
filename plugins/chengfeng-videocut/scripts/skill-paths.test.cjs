@@ -43,8 +43,8 @@ for (const name of publicSkills) {
   const text = fs.readFileSync(path.join(root, "skills", name, "SKILL.md"), "utf8");
   assert.doesNotMatch(text, /\$SKILL_DIR|SKILL_DIR=/, `${name} must not require an injected SKILL_DIR`);
   assert.ok(
-    /references\/runtime-preflight\.md/.test(text) || /codex plugin list --json/.test(text),
-    `${name} must run or reference the runtime preflight`,
+    /chengfeng-check-updates/.test(text) || /codex plugin list --json/.test(text),
+    `${name} must reference the readiness check owned by chengfeng-check-updates`,
   );
   const agent = fs.readFileSync(path.join(root, "skills", name, "agents", "openai.yaml"), "utf8");
   assert.match(agent, new RegExp(`\\$${pluginName}:${name}`), `${name} must use its full Plugin namespace in the default prompt`);
@@ -52,11 +52,28 @@ for (const name of publicSkills) {
 }
 
 const runtimeContract = fs.readFileSync(path.join(root, "references", "runtime-and-product-contract.md"), "utf8");
-const preflight = fs.readFileSync(path.join(root, "references", "runtime-preflight.md"), "utf8");
-assert.match(preflight, /codex plugin list --json/, "the preflight single source must resolve the plugin via Codex");
-assert.match(preflight, /x\.enabled && x\.name === "chengfeng-videocut" && x\.source && x\.source\.path/, "the preflight must select one enabled source.path");
-assert.match(preflight, /test -n "\$PLUGIN_ROOT" && test -f "\$PLUGIN_ROOT\/.codex-plugin\/plugin\.json"/, "the preflight must validate the resolved root");
-assert.match(preflight, /禁止用自制的审核页/, "the preflight must carry the no-substitute-interface ban");
+// 就绪检查（原 runtime-preflight）2026-08-03 收编进检查更新 Skill——环境的唯一管理者。
+const readiness = fs.readFileSync(path.join(root, "skills", "chengfeng-check-updates", "SKILL.md"), "utf8");
+assert.doesNotMatch(
+  readiness,
+  /codex plugin list --json/,
+  "the readiness check must not invoke Codex against the user home just to locate itself",
+);
+// 2026-08-03 W4：定位改两步式（命令 + Agent 内联字面路径），不再经过 shell 变量——
+// PowerShell 与 bash 的赋值语法互不兼容，胶水逻辑一律不进命令块。
+assert.match(
+  readiness,
+  /本 Skill 实际源文件路径/,
+  "the readiness check must derive its cache root from the loaded Skill path",
+);
+assert.doesNotMatch(
+  readiness,
+  /source\.path/,
+  "the readiness check must not combine installed identity with a marketplace snapshot source.path",
+);
+assert.match(readiness, /\.codex-plugin\/plugin\.json/, "the readiness check must validate the resolved root");
+assert.doesNotMatch(readiness, /PLUGIN_ROOT="\$\(/, "the readiness check must not assign shell variables");
+assert.match(readiness, /禁止用自制的审核页/, "the readiness check must carry the no-substitute-interface ban");
 const businessContract = fs.readFileSync(path.join(root, "references", "business-workflow-contract.md"), "utf8");
 assert.match(runtimeContract, /普通内部 reference/, "shared Product boundaries must be an internal reference");
 assert.match(businessContract, /不是用户可调用的 Skill/, "shared business workflow must not be user-facing");
@@ -68,7 +85,7 @@ assert.doesNotMatch(
 
 assert.deepEqual(fs.readdirSync(path.join(root, "skills")).sort(), publicSkills.slice().sort(), "only the six task-facing Skills may be discovered");
 console.log(JSON.stringify({
-  sevenTaskFacingSkills: true,
+  sixTaskFacingSkills: true,
   pluginRootUnshadowed: true,
   pluginStarterPromptCap: true,
   namespacedDefaultPrompts: true,

@@ -2,6 +2,15 @@
 
 "use strict";
 
+// Node 拒绝直接 spawn .cmd/.bat（CVE-2024-27980 后策略）；Windows 启动器经 cmd.exe 转发。
+function windowsSafeInvocation(command, args) {
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
+    return { command: process.env.ComSpec || "cmd.exe", args: ["/d", "/s", "/c", command, ...args] };
+  }
+  return { command, args };
+}
+
+
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -67,6 +76,9 @@ function loadRuntimeContract(contractPath = CONTRACT_PATH) {
     contract.releaseTag === `v${contract.releaseVersion}` &&
     parseSemver(contract?.minimumRuntimeVersion) !== null &&
     /^[A-Za-z0-9_.-]+$/.test(contract?.installerAsset || "") &&
+    contract?.portableAsset === "chengfeng-videocut-portable.tar.gz" &&
+    contract?.versionedPortableAsset ===
+      `chengfeng-videocut-${contract.releaseVersion}-portable.tar.gz` &&
     /^[A-Za-z0-9_.-]+$/.test(contract?.checksumAsset || "") &&
     isPlainObject(studioCapabilities) &&
     Array.isArray(studioCapabilities.topLevelViews) &&
@@ -157,6 +169,29 @@ function managedHome() {
   );
 }
 
+function managedRuntimeKind(root) {
+  try {
+    const receipt = JSON.parse(
+      readFileSync(path.join(root, "desktop-installation.json"), "utf8"),
+    );
+    const installedVersion = readFileSync(
+      path.join(root, "app", "current", "VERSION"),
+      "utf8",
+    ).trim();
+    if (
+      receipt?.schemaVersion === 1 &&
+      receipt?.product === PRODUCT &&
+      receipt?.source === "desktop" &&
+      receipt?.productVersion === installedVersion
+    ) {
+      return "desktop-managed";
+    }
+  } catch {
+    // A CLI-only installation has no Desktop receipt.
+  }
+  return "managed";
+}
+
 function sourceInvocation(args) {
   const directory = process.env.CHENGFENG_VIDEOCUT_DIR;
   if (!directory) return null;
@@ -179,19 +214,30 @@ function resolveRuntimeInvocation(args = []) {
       : null;
   }
 
+  const root = managedHome();
+  const managedNames = process.platform === "win32"
+    ? [`${PRODUCT}.cmd`, `${PRODUCT}.exe`, PRODUCT]
+    : [PRODUCT];
+  for (const name of managedNames) {
+    const managed = path.join(root, "bin", name);
+    if (isExecutable(managed)) {
+      return {
+        command: managed,
+        args,
+        cwd: process.cwd(),
+        kind: managedRuntimeKind(root),
+      };
+    }
+  }
+
   const installed = findCommand(PRODUCT);
   if (installed) return { command: installed, args, cwd: process.cwd(), kind: "path" };
-
-  const managed = path.join(managedHome(), "bin", PRODUCT);
-  if (isExecutable(managed)) {
-    return { command: managed, args, cwd: process.cwd(), kind: "managed" };
-  }
 
   return sourceInvocation(args);
 }
 
 function run(invocation) {
-  return spawnSync(invocation.command, invocation.args, {
+  return spawnSync(...(({ command, args }) => [command, args])(windowsSafeInvocation(invocation.command, invocation.args)), {
     cwd: invocation.cwd,
     env: process.env,
     encoding: "utf8",
@@ -273,7 +319,8 @@ function expectedChecksum(checksumText, assetName) {
 }
 
 function verifyInstaller(installer, checksumFile) {
-  const expected = expectedChecksum(readFileSync(checksumFile, "utf8"), RUNTIME_CONTRACT.installerAsset);
+  const sums = readFileSync(checksumFile, "utf8");
+  const expected = expectedChecksum(sums, RUNTIME_CONTRACT.installerAsset);
   if (!expected) {
     throw new RuntimeInstallError(
       "runtime_release_incomplete",
@@ -287,11 +334,19 @@ function verifyInstaller(installer, checksumFile) {
       `${RUNTIME_CONTRACT.releaseTag} 安装器 SHA-256 校验失败；安装已停止。`,
     );
   }
+  for (const asset of [RUNTIME_CONTRACT.portableAsset, RUNTIME_CONTRACT.versionedPortableAsset]) {
+    if (!expectedChecksum(sums, asset)) {
+      throw new RuntimeInstallError(
+        "runtime_release_incomplete",
+        `${RUNTIME_CONTRACT.releaseTag} 的 ${RUNTIME_CONTRACT.checksumAsset} 未声明 Runtime portable asset ${asset}；安装已停止。`,
+      );
+    }
+  }
 }
 
 function installRuntime() {
   const directory = mkdtempSync(path.join(os.tmpdir(), "chengfeng-videocut-installer-"));
-  const installer = path.join(directory, "install.sh");
+  const installer = path.join(directory, RUNTIME_CONTRACT.installerAsset);
   const checksum = path.join(directory, RUNTIME_CONTRACT.checksumAsset);
   const targetReleaseBase = releaseBase();
   try {
@@ -304,7 +359,8 @@ function installRuntime() {
       verifyInstaller(installer, checksum);
     }
 
-    const result = spawnSync("/bin/sh", [installer], {
+    // Node 安装器跨平台（v0.4.0 起）；/bin/sh 在 Windows 不存在，也不再需要。
+    const result = spawnSync(process.execPath, [installer], {
       env: {
         ...process.env,
         // A tagged installer must consume assets from the same exact release,
@@ -342,10 +398,32 @@ function output(payload, json) {
 function main(argv = process.argv.slice(2)) {
   const json = argv.includes("--json");
   const installIfMissing = argv.includes("--install-if-missing");
-  const unknown = argv.filter((arg) => !["--json", "--install-if-missing"].includes(arg));
+  const upgrade = argv.includes("--upgrade");
+  const unknown = argv.filter((arg) => !["--json", "--install-if-missing", "--upgrade"].includes(arg));
   if (unknown.length > 0) {
     output({ ok: false, error: { code: "invalid_argument", message: `未知参数: ${unknown.join(" ")}` } }, json);
     return 2;
+  }
+
+  // 平台闸门：macOS 与 Windows 已真机验收；其余平台明确拒绝，胜过让用户
+  // 在某个 unix-only 环节得到一个没有解释的失败。
+  // CHENGFENG_VIDEOCUT_ALLOW_UNSUPPORTED_PLATFORM 仅供移植开发与 CI 使用。
+  const SUPPORTED_PLATFORMS = ["darwin", "win32"];
+  if (
+    !SUPPORTED_PLATFORMS.includes(process.platform) &&
+    !process.env.CHENGFENG_VIDEOCUT_ALLOW_UNSUPPORTED_PLATFORM
+  ) {
+    output({
+      ok: false,
+      error: {
+        code: "platform_unsupported",
+        message:
+          `chengfeng-videocut 目前支持 macOS 与 Windows，当前系统（${process.platform}）暂不支持。` +
+          "请不要用自制替代方案继续剪辑流程——可在 GitHub 仓库开 Issue 登记需求。",
+        details: { platform: process.platform, supported: SUPPORTED_PLATFORMS },
+      },
+    }, json);
+    return 15;
   }
 
   let runtime = inspectRuntime();
@@ -364,18 +442,19 @@ function main(argv = process.argv.slice(2)) {
     }, json);
     return 11;
   }
-  if (runtime.state === "incompatible") {
+  const upgrading = runtime.state === "incompatible" && installIfMissing && upgrade;
+  if (runtime.state === "incompatible" && !upgrading) {
     output({
       ok: false,
       error: {
         code: "runtime_capability_missing",
-        message: `当前 chengfeng-videocut Runtime 不满足 ${RUNTIME_CONTRACT.releaseTag} 合同；请升级后再继续，禁止回退旧剪辑链。`,
+        message: `当前 chengfeng-videocut Runtime 不满足 ${RUNTIME_CONTRACT.releaseTag} 合同；请升级后再继续，禁止回退旧剪辑链。用户确认后可执行 --install-if-missing --upgrade 原子升级（项目数据不动）。`,
         details: runtime,
       },
     }, json);
     return 14;
   }
-  if (!installIfMissing) {
+  if (!upgrading && !installIfMissing) {
     output({
       ok: false,
       error: { code: "runtime_missing", message: "未检测到 chengfeng-videocut。" },
@@ -383,7 +462,9 @@ function main(argv = process.argv.slice(2)) {
     return 10;
   }
 
-  process.stderr.write(`${INSTALL_NOTICE}\n`);
+  process.stderr.write(upgrading
+    ? `检测到旧版 Runtime，用户已确认，正在原子升级到 ${RUNTIME_CONTRACT.releaseTag}（项目数据不动）…\n`
+    : `${INSTALL_NOTICE}\n`);
   try {
     installRuntime();
   } catch (error) {
@@ -431,6 +512,7 @@ module.exports = {
   inspectRuntime,
   main,
   managedHome,
+  managedRuntimeKind,
   parseSemver,
   resolveRuntimeInvocation,
   supportsRequiredCapabilities,

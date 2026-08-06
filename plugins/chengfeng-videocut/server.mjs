@@ -1,4 +1,6 @@
 import widgetHtml from "./public/review-confirm.html" with { type: "text" };
+import packageManifest from "./package.json" with { type: "json" };
+import { tmpdir } from "node:os";
 import {
   registerAppResource,
   registerAppTool,
@@ -7,6 +9,12 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+
+// Codex starts this MCP with the installed plugin cache as cwd. Windows cannot
+// rename that directory while a live process keeps it as cwd, which blocks an
+// official Marketplace refresh. All runtime assets are bundled, so release the
+// mutable cache directory as soon as startup imports have resolved.
+process.chdir(tmpdir());
 
 const templateUri = "ui://chengfeng-videocut/workflow-confirm-v1.html";
 const revision = z.string().regex(/^[a-f0-9]{64}$/, "revision must be a SHA-256 string");
@@ -84,7 +92,8 @@ const optionSchema = z.object({
   nextStep: z.string(),
 });
 
-const server = new McpServer({ name: "chengfeng-videocut", version: "0.5.1" });
+// 版本跟随 package.json，避免再次出现「dist 里冻着老版本号」的漂移。
+const server = new McpServer({ name: "chengfeng-videocut", version: packageManifest.version });
 
 registerAppResource(
   server,
